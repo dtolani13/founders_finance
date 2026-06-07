@@ -27,7 +27,7 @@ async function seed() {
   await db.delete(entities);
 
   // Entities
-  const [sm, rcl, poly, personal] = await db.insert(entities).values([
+  const [sm, poly, rcl, personal] = await db.insert(entities).values([
     {
       legal_name: "Studio Maestro LLC",
       display_name: "Studio Maestro",
