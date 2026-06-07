@@ -6,6 +6,9 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx ./src/seed.ts",
+    "backup": "tsx ./src/backup.ts",
+    "backup:verify": "tsx ./src/verify-backup.ts",
+    "verify-restore": "tsx ./src/verify-restore.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

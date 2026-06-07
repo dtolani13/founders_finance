@@ -6,7 +6,7 @@ import { entities } from "./entities";
 export const audit_log = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   table_name: text("table_name").notNull(),
-  record_id: uuid("record_id").notNull(),
+  record_id: uuid("record_id"),
   action: text("action").notNull(),
   previous_value: text("previous_value"),
   new_value: text("new_value"),

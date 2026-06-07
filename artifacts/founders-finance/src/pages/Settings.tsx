@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   useListEntities, getListEntitiesQueryKey,
   useUpdateEntity,
+  useCreateEntity,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -15,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Building2, Plus } from "lucide-react";
 import type { Entity } from "@workspace/api-client-react";
 
 const schema = z.object({
@@ -28,6 +29,128 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+const createSchema = z.object({
+  legal_name: z.string().min(1, "Legal name is required"),
+  display_name: z.string().min(1, "Display name is required"),
+  short_code: z.string().min(2, "Short code is required"),
+  entity_type: z.string().min(1),
+  purpose: z.string().nullable().optional(),
+  tax_classification_note: z.string().nullable().optional(),
+});
+
+type CreateFormValues = z.infer<typeof createSchema>;
+
+function AddCompanyForm() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const form = useForm<CreateFormValues>({
+    resolver: zodResolver(createSchema),
+    defaultValues: {
+      legal_name: "Polymathic Systems LLC",
+      display_name: "Polymathic Systems",
+      short_code: "POLY",
+      entity_type: "LLC",
+      purpose: "Systems, automation, and software operations",
+      tax_classification_note: "Single-member LLC disregarded for federal tax",
+    },
+  });
+
+  const create = useCreateEntity({
+    onSuccess: (entity) => {
+      queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
+      toast({ title: "Company added", description: `${entity.display_name} is ready with checking and tax reserve accounts.` });
+      form.reset({
+        legal_name: "",
+        display_name: "",
+        short_code: "",
+        entity_type: "LLC",
+        purpose: "",
+        tax_classification_note: "",
+      });
+    },
+    onError: () => toast({ title: "Failed to add company", variant: "destructive" }),
+  });
+
+  function onSubmit(values: CreateFormValues) {
+    create.mutate({
+      ...values,
+      primary_color: "#00AEEF",
+      secondary_color: "#0B1726",
+      accent_color: "#7DD3FC",
+    });
+  }
+
+  return (
+    <Card className="border-sky-500/40 bg-card/95">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md border border-sky-400/50 bg-sky-500/10 text-sky-300">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-base">Add Company</CardTitle>
+            <p className="text-xs text-muted-foreground">Creates the entity plus default checking and tax reserve accounts.</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
+            <FormField control={form.control} name="legal_name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Legal Name</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="display_name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Display Name</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="short_code" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Short Code</FormLabel>
+                <FormControl><Input {...field} className="uppercase" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="entity_type" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Entity Type</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="purpose" render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Purpose</FormLabel>
+                <FormControl><Textarea rows={2} {...field} value={field.value ?? ""} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="tax_classification_note" render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Tax Classification Note</FormLabel>
+                <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <div className="md:col-span-2 flex justify-end">
+              <Button type="submit" disabled={create.isPending}>
+                <Plus className="h-4 w-4" />
+                {create.isPending ? "Adding..." : "Add Company"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
 
 function EntityForm({ entity }: { entity: Entity }) {
   const { toast } = useToast();
@@ -161,9 +284,11 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Entity Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure display names, colors, and notes per entity</p>
+        <h1 className="text-2xl font-bold tracking-tight">Company Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage entities, operating accounts, colors, and tax notes.</p>
       </div>
+
+      <AddCompanyForm />
 
       {error && (
         <Alert variant="destructive">

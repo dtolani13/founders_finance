@@ -27,7 +27,7 @@ async function seed() {
   await db.delete(entities);
 
   // Entities
-  const [sm, rcl, personal] = await db.insert(entities).values([
+  const [sm, rcl, poly, personal] = await db.insert(entities).values([
     {
       legal_name: "Studio Maestro LLC",
       display_name: "Studio Maestro",
@@ -38,6 +38,18 @@ async function seed() {
       primary_color: "#7C3AED",
       secondary_color: "#EDE9FE",
       accent_color: "#A78BFA",
+      is_active: true,
+    },
+    {
+      legal_name: "Polymathic Systems LLC",
+      display_name: "Polymathic Systems",
+      short_code: "POLY",
+      entity_type: "LLC",
+      purpose: "Systems, automation, and software operations",
+      tax_classification_note: "Single-member LLC disregarded for federal tax",
+      primary_color: "#00AEEF",
+      secondary_color: "#0B1726",
+      accent_color: "#7DD3FC",
       is_active: true,
     },
     {
@@ -65,7 +77,7 @@ async function seed() {
     },
   ]).returning();
 
-  console.log("✓ Entities seeded:", sm.short_code, rcl.short_code, personal.short_code);
+  console.log("Entities seeded:", sm.short_code, rcl.short_code, poly.short_code, personal.short_code);
 
   // Accounts
   await db.insert(accounts).values([
@@ -73,6 +85,8 @@ async function seed() {
     { entity_id: sm.id, name: "SM Tax Reserve", account_type: "savings", institution_name: "Mercury", last_four: "9203", opening_balance: "0", current_balance: "12000.00", is_tax_reserve: true, is_active: true },
     { entity_id: rcl.id, name: "RCL Checking", account_type: "checking", institution_name: "Mercury", last_four: "7744", opening_balance: "0", current_balance: "15820.00", is_tax_reserve: false, is_active: true },
     { entity_id: rcl.id, name: "RCL Tax Reserve", account_type: "savings", institution_name: "Mercury", last_four: "5519", opening_balance: "0", current_balance: "7500.00", is_tax_reserve: true, is_active: true },
+    { entity_id: poly.id, name: "POLY Checking", account_type: "checking", institution_name: "Mercury", opening_balance: "0", current_balance: "0.00", is_tax_reserve: false, is_active: true },
+    { entity_id: poly.id, name: "POLY Tax Reserve", account_type: "savings", institution_name: "Mercury", opening_balance: "0", current_balance: "0.00", is_tax_reserve: true, is_active: true },
     { entity_id: personal.id, name: "Personal Checking", account_type: "checking", institution_name: "Chase", last_four: "1138", opening_balance: "0", current_balance: "9200.00", is_tax_reserve: false, is_active: true },
     { entity_id: sm.id, name: "SM Business Card", account_type: "credit_card", institution_name: "Chase Ink", last_four: "6677", opening_balance: "0", current_balance: "-2340.00", is_tax_reserve: false, is_active: true },
   ]);

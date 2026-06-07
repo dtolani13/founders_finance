@@ -43,37 +43,35 @@
 }
 
 :root {
-  /* Very clean, dense financial terminal look. Light mode default. */
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --background: 216 44% 7%;
+  --foreground: 210 32% 92%;
   
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --card-border: 0 0% 13%;
+  --card: 215 43% 10%;
+  --card-foreground: 210 32% 94%;
+  --card-border: 202 72% 32%;
   
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --popover-border: 0 0% 13%;
+  --popover: 215 43% 10%;
+  --popover-foreground: 210 32% 94%;
+  --popover-border: 202 72% 32%;
   
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
+  --primary: 196 100% 50%;
+  --primary-foreground: 216 44% 7%;
   
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
+  --secondary: 215 33% 16%;
+  --secondary-foreground: 210 32% 92%;
   
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
+  --muted: 215 31% 17%;
+  --muted-foreground: 215 20% 67%;
   
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
+  --accent: 199 89% 48%;
+  --accent-foreground: 216 44% 7%;
   
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
 
-  /* Borders: near-black for structural elements, pure black for form inputs */
-  --border: 0 0% 13%;
-  --input: 0 0% 0%;
-  --ring: 0 0% 0%;
+  --border: 213 31% 24%;
+  --input: 203 46% 34%;
+  --ring: 196 100% 50%;
   
   --radius: 0.3rem;
   
@@ -87,5 +85,14 @@
   }
   body {
     @apply font-sans bg-background text-foreground antialiased;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(0, 174, 239, 0.16), transparent 34rem),
+      linear-gradient(135deg, #04101f 0%, #071427 48%, #050914 100%);
+  }
+}
+
+@layer components {
+  .card, [data-slot="card"] {
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
   }
 }

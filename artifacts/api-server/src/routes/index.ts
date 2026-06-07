@@ -16,6 +16,7 @@ import documentsRouter from "./documents";
 import statementsRouter from "./statements";
 import monthlyCloseRouter from "./monthly_close";
 import exportsRouter from "./exports";
+import auditRouter from "./audit";
 
 const router: IRouter = Router();
 
@@ -37,5 +38,6 @@ router.use("/statements", statementsRouter);
 router.use("/statement-lines", statementsRouter);
 router.use("/monthly-close", monthlyCloseRouter);
 router.use("/exports", exportsRouter);
+router.use("/audit", auditRouter);
 
 export default router;
