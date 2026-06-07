@@ -21,6 +21,10 @@ export interface Entity {
   secondary_color?: string | null;
   accent_color?: string | null;
   logo_path?: string | null;
+  lifecycle_status: string;
+  closed_at?: string | null;
+  archive_until?: string | null;
+  archive_reason?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

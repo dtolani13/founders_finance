@@ -17,6 +17,10 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary List all entities
  */
+export const ListEntitiesQueryParams = zod.object({
+  include_inactive: zod.coerce.boolean().optional(),
+});
+
 export const ListEntitiesResponseItem = zod.object({
   id: zod.string().uuid(),
   legal_name: zod.string(),
@@ -29,6 +33,10 @@ export const ListEntitiesResponseItem = zod.object({
   secondary_color: zod.string().nullish(),
   accent_color: zod.string().nullish(),
   logo_path: zod.string().nullish(),
+  lifecycle_status: zod.enum(["active", "closed", "archived"]),
+  closed_at: zod.coerce.date().nullish(),
+  archive_until: zod.coerce.date().nullish(),
+  archive_reason: zod.string().nullish(),
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
@@ -54,6 +62,10 @@ export const GetEntityResponse = zod.object({
   secondary_color: zod.string().nullish(),
   accent_color: zod.string().nullish(),
   logo_path: zod.string().nullish(),
+  lifecycle_status: zod.enum(["active", "closed", "archived"]),
+  closed_at: zod.coerce.date().nullish(),
+  archive_until: zod.coerce.date().nullish(),
+  archive_reason: zod.string().nullish(),
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
@@ -88,6 +100,10 @@ export const UpdateEntityResponse = zod.object({
   secondary_color: zod.string().nullish(),
   accent_color: zod.string().nullish(),
   logo_path: zod.string().nullish(),
+  lifecycle_status: zod.enum(["active", "closed", "archived"]),
+  closed_at: zod.coerce.date().nullish(),
+  archive_until: zod.coerce.date().nullish(),
+  archive_reason: zod.string().nullish(),
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),

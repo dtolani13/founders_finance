@@ -1,11 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  useListEntities, getListEntitiesQueryKey,
+  getListEntitiesQueryKey,
   useUpdateEntity,
   useCreateEntity,
+  useListAllEntities,
+  getListAllEntitiesQueryKey,
+  useCloseEntity,
+  useArchiveEntity,
+  useReopenEntity,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -13,10 +18,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Building2, Plus } from "lucide-react";
+import { AlertCircle, Archive, Building2, LockKeyhole, Plus, RotateCcw } from "lucide-react";
 import type { Entity } from "@workspace/api-client-react";
 
 const schema = z.object({
@@ -155,6 +161,17 @@ function AddCompanyForm() {
 function EntityForm({ entity }: { entity: Entity }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [archiveUntil, setArchiveUntil] = useState("");
+  const [archiveReason, setArchiveReason] = useState("");
+  const isPersonal = entity.short_code === "PERSONAL";
+  const isActive = entity.lifecycle_status === "active" && entity.is_active;
+  const isClosed = entity.lifecycle_status === "closed";
+  const isArchived = entity.lifecycle_status === "archived";
+
+  const refreshEntities = () => {
+    queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListAllEntitiesQueryKey() });
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -177,12 +194,15 @@ function EntityForm({ entity }: { entity: Entity }) {
       accent_color: entity.accent_color ?? "",
       tax_classification_note: entity.tax_classification_note ?? "",
     });
+    setArchiveUntil(entity.archive_until ? entity.archive_until.slice(0, 10) : "");
+    setArchiveReason(entity.archive_reason ?? "");
   }, [entity.id]);
 
   const update = useUpdateEntity({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListAllEntitiesQueryKey() });
         toast({ title: "Entity updated", description: `${entity.display_name} settings saved.` });
       },
       onError: () => toast({ title: "Failed to update entity", variant: "destructive" }),
@@ -193,15 +213,69 @@ function EntityForm({ entity }: { entity: Entity }) {
     update.mutate({ id: entity.id, data: values });
   }
 
+  const closeEntity = useCloseEntity({
+    onSuccess: (updated) => {
+      refreshEntities();
+      toast({ title: "Company closed", description: `${updated.display_name} is inactive but its records are preserved.` });
+    },
+    onError: () => toast({ title: "Failed to close company", variant: "destructive" }),
+  });
+
+  const archiveEntity = useArchiveEntity({
+    onSuccess: (updated) => {
+      refreshEntities();
+      toast({ title: "Company archived", description: `${updated.display_name} is archived for recordkeeping.` });
+    },
+    onError: () => toast({ title: "Failed to archive company", variant: "destructive" }),
+  });
+
+  const reopenEntity = useReopenEntity({
+    onSuccess: (updated) => {
+      refreshEntities();
+      toast({ title: "Company reopened", description: `${updated.display_name} is active again.` });
+    },
+    onError: () => toast({ title: "Failed to reopen company", variant: "destructive" }),
+  });
+
+  function lifecyclePayload() {
+    return {
+      archive_until: archiveUntil ? new Date(`${archiveUntil}T00:00:00`).toISOString() : null,
+      archive_reason: archiveReason || null,
+    };
+  }
+
+  function handleClose() {
+    if (!window.confirm(`Close ${entity.display_name}? It will disappear from active workflows, but all financial records stay preserved.`)) return;
+    closeEntity.mutate({ id: entity.id, data: lifecyclePayload() });
+  }
+
+  function handleArchive() {
+    if (!window.confirm(`Archive ${entity.display_name}? This preserves the company for recordkeeping and keeps it out of active workflows.`)) return;
+    archiveEntity.mutate({ id: entity.id, data: lifecyclePayload() });
+  }
+
+  function handleReopen() {
+    if (!window.confirm(`Reopen ${entity.display_name}? Its accounts will become active again.`)) return;
+    reopenEntity.mutate({ id: entity.id });
+  }
+
   return (
-    <Card className="border-t-2" style={{ borderTopColor: entity.primary_color ?? "#6b7280" }} data-testid={`card-entity-${entity.id}`}>
+    <Card className={isActive ? "border-t-2" : "border-t-2 opacity-85"} style={{ borderTopColor: entity.primary_color ?? "#6b7280" }} data-testid={`card-entity-${entity.id}`}>
       <CardHeader className="pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entity.primary_color ?? "#6b7280" }} />
-          <div>
-            <CardTitle className="text-sm">{entity.legal_name}</CardTitle>
-            <p className="text-xs text-muted-foreground">{entity.short_code} · {entity.entity_type}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entity.primary_color ?? "#6b7280" }} />
+            <div>
+              <CardTitle className="text-sm">{entity.legal_name}</CardTitle>
+              <p className="text-xs text-muted-foreground">{entity.short_code} · {entity.entity_type}</p>
+            </div>
           </div>
+          <Badge
+            variant={isActive ? "default" : "outline"}
+            className={isArchived ? "border-slate-500 text-slate-300" : isClosed ? "border-amber-400/60 text-amber-200" : ""}
+          >
+            {entity.lifecycle_status}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -273,13 +347,71 @@ function EntityForm({ entity }: { entity: Entity }) {
             </div>
           </form>
         </Form>
+
+        <div className="mt-6 border-t border-border pt-5">
+          <div className="grid gap-3 md:grid-cols-[1fr_1.4fr]">
+            <div>
+              <p className="text-sm font-semibold text-white">Company Lifecycle</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Close or archive companies without deleting the transaction history, evidence, statements, or audit trail.
+              </p>
+              {(entity.closed_at || entity.archive_until) && (
+                <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                  {entity.closed_at && <p>Closed: {new Date(entity.closed_at).toLocaleDateString()}</p>}
+                  {entity.archive_until && <p>Keep records until: {new Date(entity.archive_until).toLocaleDateString()}</p>}
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Recordkeeping Until</label>
+                  <Input type="date" value={archiveUntil} onChange={(event) => setArchiveUntil(event.target.value)} disabled={isPersonal} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Reason</label>
+                  <Input value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="Closed, sold, inactive, dissolved..." disabled={isPersonal} />
+                </div>
+              </div>
+              {isPersonal ? (
+                <Alert>
+                  <LockKeyhole className="h-4 w-4" />
+                  <AlertDescription>The personal founder record is protected and cannot be closed or archived.</AlertDescription>
+                </Alert>
+              ) : (
+                <div className="flex flex-wrap justify-end gap-2">
+                  {!isActive && (
+                    <Button type="button" variant="outline" size="sm" onClick={handleReopen} disabled={reopenEntity.isPending}>
+                      <RotateCcw className="h-4 w-4" />
+                      {reopenEntity.isPending ? "Reopening..." : "Reopen"}
+                    </Button>
+                  )}
+                  {isActive && (
+                    <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={closeEntity.isPending}>
+                      <LockKeyhole className="h-4 w-4" />
+                      {closeEntity.isPending ? "Closing..." : "Close Company"}
+                    </Button>
+                  )}
+                  {!isArchived && (
+                    <Button type="button" variant="destructive" size="sm" onClick={handleArchive} disabled={archiveEntity.isPending}>
+                      <Archive className="h-4 w-4" />
+                      {archiveEntity.isPending ? "Archiving..." : "Archive"}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
 export default function Settings() {
-  const { data: entities, isLoading, error } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities, isLoading, error } = useListAllEntities();
+  const activeEntities = entities?.filter(entity => entity.lifecycle_status === "active" && entity.is_active) ?? [];
+  const inactiveEntities = entities?.filter(entity => !(entity.lifecycle_status === "active" && entity.is_active)) ?? [];
 
   return (
     <div className="space-y-6">
@@ -302,9 +434,23 @@ export default function Settings() {
           {[1,2,3].map(i => <Card key={i}><CardContent className="py-6"><Skeleton className="h-32 w-full" /></CardContent></Card>)}
         </div>
       ) : (
-        <div className="space-y-4">
-          {entities?.map(entity => <EntityForm key={entity.id} entity={entity} />)}
-        </div>
+        <>
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Active Companies</h2>
+              <div className="mt-3 space-y-4">
+                {activeEntities.map(entity => <EntityForm key={entity.id} entity={entity} />)}
+              </div>
+            </div>
+          </div>
+
+          {inactiveEntities.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Closed / Archived Companies</h2>
+              {inactiveEntities.map(entity => <EntityForm key={entity.id} entity={entity} />)}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

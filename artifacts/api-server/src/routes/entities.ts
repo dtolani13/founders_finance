@@ -9,7 +9,10 @@ const router = Router();
 
 router.get("/", async (req, res) => {
   try {
-    const rows = await db.select().from(entities).where(eq(entities.is_active, true));
+    const includeInactive = req.query["include_inactive"] === "true";
+    const rows = includeInactive
+      ? await db.select().from(entities)
+      : await db.select().from(entities).where(eq(entities.is_active, true));
     res.json(rows);
   } catch (err) {
     req.log.error({ err }, "Failed to list entities");
@@ -39,6 +42,11 @@ const updateEntitySchema = z.object({
   tax_classification_note: z.string().nullable().optional(),
 });
 
+const lifecycleSchema = z.object({
+  archive_until: z.coerce.date().nullable().optional(),
+  archive_reason: z.string().nullable().optional(),
+});
+
 const createEntitySchema = z.object({
   legal_name: z.string().min(1),
   display_name: z.string().min(1),
@@ -64,6 +72,7 @@ router.post("/", async (req, res) => {
       primary_color: body.primary_color ?? "#00AEEF",
       secondary_color: body.secondary_color ?? "#0B1726",
       accent_color: body.accent_color ?? "#7DD3FC",
+      lifecycle_status: "active",
       is_active: true,
     }).returning();
 
@@ -100,6 +109,131 @@ router.post("/", async (req, res) => {
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
     req.log.error({ err }, "Failed to create entity");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/:id/close", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = lifecycleSchema.parse(req.body ?? {});
+    const [existing] = await db.select().from(entities).where(eq(entities.id, id));
+    if (!existing) return res.status(404).json({ error: "Entity not found" });
+    if (existing.short_code === "PERSONAL") {
+      return res.status(400).json({ error: "Personal founder record cannot be closed." });
+    }
+
+    const now = new Date();
+    const rows = await db.update(entities)
+      .set({
+        lifecycle_status: "closed",
+        is_active: false,
+        closed_at: existing.closed_at ?? now,
+        archive_until: body.archive_until ?? existing.archive_until,
+        archive_reason: body.archive_reason ?? existing.archive_reason,
+        updated_at: now,
+      })
+      .where(eq(entities.id, id))
+      .returning();
+
+    await db.update(accounts)
+      .set({ is_active: false, updated_at: now })
+      .where(eq(accounts.entity_id, id));
+
+    await writeAuditLog({
+      tableName: "entities",
+      recordId: id,
+      action: "close",
+      previousValue: existing,
+      newValue: rows[0],
+      memo: "Entity closed. Records preserved and entity accounts deactivated.",
+    });
+
+    res.json(rows[0]);
+  } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    req.log.error({ err }, "Failed to close entity");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/:id/archive", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = lifecycleSchema.parse(req.body ?? {});
+    const [existing] = await db.select().from(entities).where(eq(entities.id, id));
+    if (!existing) return res.status(404).json({ error: "Entity not found" });
+    if (existing.short_code === "PERSONAL") {
+      return res.status(400).json({ error: "Personal founder record cannot be archived." });
+    }
+
+    const now = new Date();
+    const rows = await db.update(entities)
+      .set({
+        lifecycle_status: "archived",
+        is_active: false,
+        closed_at: existing.closed_at ?? now,
+        archive_until: body.archive_until ?? existing.archive_until,
+        archive_reason: body.archive_reason ?? existing.archive_reason ?? "Archived for recordkeeping.",
+        updated_at: now,
+      })
+      .where(eq(entities.id, id))
+      .returning();
+
+    await db.update(accounts)
+      .set({ is_active: false, updated_at: now })
+      .where(eq(accounts.entity_id, id));
+
+    await writeAuditLog({
+      tableName: "entities",
+      recordId: id,
+      action: "archive",
+      previousValue: existing,
+      newValue: rows[0],
+      memo: "Entity archived for recordkeeping. Records preserved and entity accounts deactivated.",
+    });
+
+    res.json(rows[0]);
+  } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    req.log.error({ err }, "Failed to archive entity");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/:id/reopen", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await db.select().from(entities).where(eq(entities.id, id));
+    if (!existing) return res.status(404).json({ error: "Entity not found" });
+
+    const now = new Date();
+    const rows = await db.update(entities)
+      .set({
+        lifecycle_status: "active",
+        is_active: true,
+        closed_at: null,
+        updated_at: now,
+      })
+      .where(eq(entities.id, id))
+      .returning();
+
+    await db.update(accounts)
+      .set({ is_active: true, updated_at: now })
+      .where(eq(accounts.entity_id, id));
+
+    await writeAuditLog({
+      tableName: "entities",
+      recordId: id,
+      action: "reopen",
+      previousValue: existing,
+      newValue: rows[0],
+      memo: "Entity reopened and entity accounts reactivated.",
+    });
+
+    res.json(rows[0]);
+  } catch (err) {
+    req.log.error({ err }, "Failed to reopen entity");
     res.status(500).json({ error: "Internal server error" });
   }
 });
