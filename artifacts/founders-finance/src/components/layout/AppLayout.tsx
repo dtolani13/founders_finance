@@ -33,29 +33,94 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+function FoundersFinanceMark() {
+  return (
+    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-sky-300/55 bg-[#020817] shadow-[0_0_30px_rgba(0,174,239,0.24)]">
+      <svg
+        viewBox="0 0 96 96"
+        role="img"
+        aria-label="Founders Finance emblem"
+        className="h-12 w-12"
+      >
+        <defs>
+          <linearGradient id="ff-metal" x1="16" y1="8" x2="78" y2="86" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#F8FAFC" />
+            <stop offset="0.2" stopColor="#9CA3AF" />
+            <stop offset="0.48" stopColor="#334155" />
+            <stop offset="0.78" stopColor="#7DD3FC" />
+            <stop offset="1" stopColor="#0EA5E9" />
+          </linearGradient>
+          <linearGradient id="ff-blue" x1="17" y1="71" x2="80" y2="27" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#1D4ED8" />
+            <stop offset="0.55" stopColor="#00AEEF" />
+            <stop offset="1" stopColor="#7DD3FC" />
+          </linearGradient>
+          <filter id="ff-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2.4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <path
+          d="M48 8 78 24v24c0 18.5-10.8 31.2-30 40-19.2-8.8-30-21.5-30-40V24L48 8Z"
+          fill="#071425"
+          stroke="url(#ff-metal)"
+          strokeWidth="5"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M30 62V45h9v17m7 0V35h9v27m7 0V26h9v36"
+          fill="none"
+          stroke="#94A3B8"
+          strokeWidth="5"
+          strokeLinecap="round"
+          opacity="0.95"
+        />
+        <path
+          d="m18 70 21-20 13 12 29-36"
+          fill="none"
+          stroke="url(#ff-blue)"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#ff-glow)"
+        />
+        <path
+          d="M69 25h13v13"
+          fill="none"
+          stroke="#7DD3FC"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#ff-glow)"
+        />
+      </svg>
+    </div>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans">
-      <aside className="w-[282px] border-r border-border bg-card flex flex-col shadow-[16px_0_40px_rgba(0,0,0,0.22)]">
+      <aside className="w-[326px] border-r border-border bg-card flex flex-col shadow-[16px_0_40px_rgba(0,0,0,0.22)]">
         <div className="p-5 border-b border-border bg-[linear-gradient(180deg,rgba(0,174,239,0.12),rgba(6,16,30,0))]">
-          <div className="flex items-center gap-3">
-            <img
-              src="/brand/founders-finance-logo-reference.png"
-              alt="Founders Finance"
-              className="h-14 w-14 rounded-md border border-sky-400/40 object-cover object-left shadow-[0_0_26px_rgba(0,174,239,0.22)]"
-            />
+          <div className="flex items-center gap-4">
+            <FoundersFinanceMark />
             <div className="min-w-0">
-              <div className="text-lg font-black uppercase leading-none tracking-normal">
-                <span className="text-white">Founders</span>{" "}
-                <span className="text-sky-400">Finance</span>
+              <div className="text-2xl font-black leading-[0.9] tracking-normal">
+                <span className="block text-white">Founders</span>
+                <span className="block text-sky-400">Finance</span>
               </div>
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
-                Every Dollar. Every Entity.
-              </p>
             </div>
           </div>
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
+            Every Dollar. Every Entity.
+          </p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-md border border-slate-700/80 bg-slate-950/60 px-3 py-2">
               <p className="text-xs font-bold text-white">Entity</p>
