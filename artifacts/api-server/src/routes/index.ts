@@ -1,0 +1,41 @@
+import { Router, type IRouter } from "express";
+import healthRouter from "./health";
+import entitiesRouter from "./entities";
+import accountsRouter from "./accounts";
+import categoriesRouter from "./categories";
+import vendorsRouter from "./vendors";
+import transactionsRouter from "./transactions";
+import expensesRouter from "./expenses";
+import allocationPresetsRouter from "./allocation_presets";
+import intercompanyRouter from "./intercompany";
+import ownerContributionsRouter from "./owner_contributions";
+import reimbursementsRouter from "./reimbursements";
+import dashboardRouter from "./dashboard";
+import taxReserveRouter from "./tax_reserve";
+import documentsRouter from "./documents";
+import statementsRouter from "./statements";
+import monthlyCloseRouter from "./monthly_close";
+import exportsRouter from "./exports";
+
+const router: IRouter = Router();
+
+router.use(healthRouter);
+router.use("/entities", entitiesRouter);
+router.use("/accounts", accountsRouter);
+router.use("/categories", categoriesRouter);
+router.use("/vendors", vendorsRouter);
+router.use("/transactions", transactionsRouter);
+router.use("/expenses", expensesRouter);
+router.use("/allocation-presets", allocationPresetsRouter);
+router.use("/intercompany", intercompanyRouter);
+router.use("/owner-contributions", ownerContributionsRouter);
+router.use("/reimbursements", reimbursementsRouter);
+router.use("/dashboard", dashboardRouter);
+router.use("/tax-reserve", taxReserveRouter);
+router.use("/documents", documentsRouter);
+router.use("/statements", statementsRouter);
+router.use("/statement-lines", statementsRouter);
+router.use("/monthly-close", monthlyCloseRouter);
+router.use("/exports", exportsRouter);
+
+export default router;

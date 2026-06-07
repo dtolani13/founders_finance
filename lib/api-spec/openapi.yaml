@@ -1,0 +1,2437 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Founders Finance API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: entities
+  - name: accounts
+  - name: categories
+  - name: vendors
+  - name: transactions
+  - name: expenses
+  - name: allocation-presets
+  - name: intercompany
+  - name: owner-contributions
+  - name: reimbursements
+  - name: dashboard
+  - name: tax-reserve
+  - name: documents
+  - name: statements
+  - name: monthly-close
+  - name: exports
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /entities:
+    get:
+      operationId: listEntities
+      tags: [entities]
+      summary: List all entities
+      responses:
+        "200":
+          description: List of entities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Entity"
+
+  /entities/{id}:
+    get:
+      operationId: getEntity
+      tags: [entities]
+      summary: Get entity by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+        "404":
+          description: Not found
+    put:
+      operationId: updateEntity
+      tags: [entities]
+      summary: Update entity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntityBody"
+      responses:
+        "200":
+          description: Updated entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List accounts
+      parameters:
+        - name: entity_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+
+  /accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get account by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List vendors
+      responses:
+        "200":
+          description: List of vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVendorBody"
+      responses:
+        "201":
+          description: Created vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List transactions
+      parameters:
+        - name: entity_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: transaction_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Create transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionBody"
+      responses:
+        "201":
+          description: Created transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /transactions/{id}:
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get transaction by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Transaction with lines and allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionDetail"
+        "404":
+          description: Not found
+    put:
+      operationId: updateTransaction
+      tags: [transactions]
+      summary: Update transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionBody"
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /transactions/{id}/lines:
+    post:
+      operationId: addTransactionLines
+      tags: [transactions]
+      summary: Add lines to transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddTransactionLinesBody"
+      responses:
+        "200":
+          description: Transaction detail with lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionDetail"
+
+  /transactions/{id}/balance-check:
+    post:
+      operationId: checkTransactionBalance
+      tags: [transactions]
+      summary: Check if transaction is balanced
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Balance check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceCheckResult"
+
+  /transactions/{id}/post:
+    post:
+      operationId: postTransaction
+      tags: [transactions]
+      summary: Post a transaction (change status to posted)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Posted transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /expenses/manual:
+    post:
+      operationId: createManualExpense
+      tags: [expenses]
+      summary: Create manual expense with allocations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManualExpenseBody"
+      responses:
+        "201":
+          description: Created expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionDetail"
+
+  /expenses/unallocated:
+    get:
+      operationId: listUnallocatedExpenses
+      tags: [expenses]
+      summary: List expenses without complete allocations
+      responses:
+        "200":
+          description: List of unallocated transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /expenses/{transactionId}/allocations:
+    post:
+      operationId: createExpenseAllocations
+      tags: [expenses]
+      summary: Set allocations for an expense
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAllocationsBody"
+      responses:
+        "200":
+          description: Allocations created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpenseAllocation"
+
+  /allocation-presets:
+    get:
+      operationId: listAllocationPresets
+      tags: [allocation-presets]
+      summary: List allocation presets
+      responses:
+        "200":
+          description: List of allocation presets with lines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AllocationPreset"
+
+  /allocation-presets/{id}:
+    get:
+      operationId: getAllocationPreset
+      tags: [allocation-presets]
+      summary: Get allocation preset by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Allocation preset with lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationPreset"
+
+  /intercompany/balances:
+    get:
+      operationId: listIntercompanyBalances
+      tags: [intercompany]
+      summary: List intercompany balances
+      responses:
+        "200":
+          description: List of intercompany links with balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IntercompanyLink"
+
+  /intercompany/{id}/mark-paid:
+    post:
+      operationId: markIntercompanyPaid
+      tags: [intercompany]
+      summary: Mark intercompany balance as paid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkPaidBody"
+      responses:
+        "200":
+          description: Updated intercompany link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntercompanyLink"
+
+  /owner-contributions:
+    get:
+      operationId: listOwnerContributions
+      tags: [owner-contributions]
+      summary: List owner contributions
+      responses:
+        "200":
+          description: List of owner contributions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OwnerContribution"
+    post:
+      operationId: createOwnerContribution
+      tags: [owner-contributions]
+      summary: Record owner contribution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOwnerContributionBody"
+      responses:
+        "201":
+          description: Created owner contribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerContribution"
+
+  /reimbursements:
+    get:
+      operationId: listReimbursements
+      tags: [reimbursements]
+      summary: List reimbursement requests
+      responses:
+        "200":
+          description: List of reimbursement requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReimbursementRequest"
+
+  /reimbursements/{id}/mark-paid:
+    post:
+      operationId: markReimbursementPaid
+      tags: [reimbursements]
+      summary: Mark reimbursement as paid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkPaidBody"
+      responses:
+        "200":
+          description: Updated reimbursement request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReimbursementRequest"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary for all entities
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /tax-reserve/summary:
+    get:
+      operationId: getTaxReserveSummary
+      tags: [tax-reserve]
+      summary: Get tax reserve summary per entity
+      responses:
+        "200":
+          description: Tax reserve summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxReserveSummary"
+
+  /tax-reserve/rules:
+    post:
+      operationId: createTaxReserveRule
+      tags: [tax-reserve]
+      summary: Create or update tax reserve rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaxReserveRuleBody"
+      responses:
+        "201":
+          description: Created tax reserve rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxReserveRule"
+
+  /tax-reserve/suggest-transfer:
+    post:
+      operationId: suggestTaxReserveTransfer
+      tags: [tax-reserve]
+      summary: Calculate suggested tax reserve transfer amount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestTaxTransferBody"
+      responses:
+        "200":
+          description: Suggested transfer amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxTransferSuggestion"
+
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents
+      parameters:
+        - name: entity_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: transaction_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: document_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: period_month
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: evidence_status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Create document metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentBody"
+      responses:
+        "201":
+          description: Created document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}:
+    put:
+      operationId: updateDocument
+      tags: [documents]
+      summary: Update document metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentBody"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /statements:
+    get:
+      operationId: listStatements
+      tags: [statements]
+      summary: List statements
+      parameters:
+        - name: account_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of statements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Statement"
+    post:
+      operationId: createStatement
+      tags: [statements]
+      summary: Create statement metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStatementBody"
+      responses:
+        "201":
+          description: Created statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Statement"
+
+  /statements/{id}:
+    get:
+      operationId: getStatement
+      tags: [statements]
+      summary: Get statement with lines
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Statement detail with lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementDetail"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteStatement
+      tags: [statements]
+      summary: Delete statement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                  id:
+                    type: string
+                    format: uuid
+                required:
+                  - deleted
+                  - id
+
+  /statements/{id}/lines:
+    get:
+      operationId: listStatementLines
+      tags: [statements]
+      summary: List lines for a statement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of statement lines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatementLine"
+    post:
+      operationId: addStatementLines
+      tags: [statements]
+      summary: Add lines to statement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddStatementLinesBody"
+      responses:
+        "200":
+          description: Updated statement with lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementDetail"
+
+  /statement-lines/{id}/match:
+    post:
+      operationId: matchStatementLine
+      tags: [statements]
+      summary: Match statement line to transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchStatementLineBody"
+      responses:
+        "200":
+          description: Updated statement line
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementLine"
+
+  /statement-lines/{id}:
+    put:
+      operationId: updateStatementLine
+      tags: [statements]
+      summary: Update statement line status or notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStatementLineBody"
+      responses:
+        "200":
+          description: Updated statement line
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementLine"
+
+  /monthly-close:
+    get:
+      operationId: listMonthlyClosePeriods
+      tags: [monthly-close]
+      summary: List monthly close periods
+      parameters:
+        - name: entity_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of monthly close periods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyClosePeriod"
+    post:
+      operationId: createMonthlyClosePeriod
+      tags: [monthly-close]
+      summary: Create monthly close period
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMonthlyClosePeriodBody"
+      responses:
+        "201":
+          description: Created monthly close period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyClosePeriod"
+
+  /monthly-close/{id}:
+    put:
+      operationId: updateMonthlyClosePeriod
+      tags: [monthly-close]
+      summary: Update monthly close period status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMonthlyClosePeriodBody"
+      responses:
+        "200":
+          description: Updated monthly close period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyClosePeriod"
+
+  /exports/{type}:
+    get:
+      operationId: getExport
+      tags: [exports]
+      summary: Export data
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - all_transactions
+              - expenses_by_entity
+              - expenses_by_category
+              - owner_contributions
+              - reimbursements
+              - intercompany_balances
+              - tax_reserve_activity
+              - document_index
+              - personal_non_deductible
+              - monthly_close_summary
+              - statement_reconciliation_summary
+        - name: entity_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: period_month
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Export data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Entity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        legal_name:
+          type: string
+        display_name:
+          type: string
+        short_code:
+          type: string
+        entity_type:
+          type: string
+        purpose:
+          type: string
+          nullable: true
+        tax_classification_note:
+          type: string
+          nullable: true
+        primary_color:
+          type: string
+          nullable: true
+        secondary_color:
+          type: string
+          nullable: true
+        accent_color:
+          type: string
+          nullable: true
+        logo_path:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - legal_name
+        - display_name
+        - short_code
+        - entity_type
+        - is_active
+        - created_at
+        - updated_at
+
+    UpdateEntityBody:
+      type: object
+      properties:
+        display_name:
+          type: string
+        purpose:
+          type: string
+          nullable: true
+        primary_color:
+          type: string
+          nullable: true
+        secondary_color:
+          type: string
+          nullable: true
+        accent_color:
+          type: string
+          nullable: true
+        logo_path:
+          type: string
+          nullable: true
+        tax_classification_note:
+          type: string
+          nullable: true
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        account_type:
+          type: string
+        institution_name:
+          type: string
+          nullable: true
+        last_four:
+          type: string
+          nullable: true
+        opening_balance:
+          type: number
+        current_balance:
+          type: number
+        is_tax_reserve:
+          type: boolean
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - account_type
+        - opening_balance
+        - current_balance
+        - is_tax_reserve
+        - is_active
+        - created_at
+        - updated_at
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        category_type:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+        - id
+        - name
+        - category_type
+        - is_active
+
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        default_category_id:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+
+    CreateVendorBody:
+      type: object
+      properties:
+        name:
+          type: string
+        default_category_id:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_date:
+          type: string
+          format: date
+        transaction_type:
+          type: string
+          enum:
+            - owner_contribution
+            - owner_reimbursement
+            - business_expense
+            - shared_expense_allocation
+            - intercompany_reimbursement
+            - owner_draw
+            - transfer
+            - asset_purchase
+            - revenue
+            - adjustment
+        description:
+          type: string
+        vendor_id:
+          type: string
+          format: uuid
+          nullable: true
+        vendor_name:
+          type: string
+          nullable: true
+        total_amount:
+          type: number
+        status:
+          type: string
+          enum:
+            - draft
+            - posted
+            - needs_review
+            - voided
+        business_purpose:
+          type: string
+          nullable: true
+        is_balanced:
+          type: boolean
+        allocation_count:
+          type: integer
+        line_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - transaction_date
+        - transaction_type
+        - description
+        - total_amount
+        - status
+        - is_balanced
+        - allocation_count
+        - line_count
+        - created_at
+        - updated_at
+
+    TransactionLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+          nullable: true
+        entity_short_code:
+          type: string
+          nullable: true
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+        account_name:
+          type: string
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        category_name:
+          type: string
+          nullable: true
+        debit:
+          type: number
+        credit:
+          type: number
+        memo:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - transaction_id
+        - debit
+        - credit
+        - created_at
+
+    ExpenseAllocation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        target_entity_id:
+          type: string
+          format: uuid
+        entity_short_code:
+          type: string
+          nullable: true
+        entity_display_name:
+          type: string
+          nullable: true
+        entity_primary_color:
+          type: string
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        allocation_percent:
+          type: number
+          nullable: true
+        allocation_amount:
+          type: number
+        memo:
+          type: string
+          nullable: true
+        creates_intercompany_balance:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - transaction_id
+        - target_entity_id
+        - allocation_amount
+        - creates_intercompany_balance
+        - created_at
+
+    TransactionDetail:
+      type: object
+      properties:
+        transaction:
+          $ref: "#/components/schemas/Transaction"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionLine"
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseAllocation"
+      required:
+        - transaction
+        - lines
+        - allocations
+
+    CreateTransactionBody:
+      type: object
+      properties:
+        transaction_date:
+          type: string
+          format: date
+        transaction_type:
+          type: string
+        description:
+          type: string
+        vendor_id:
+          type: string
+          format: uuid
+          nullable: true
+        total_amount:
+          type: number
+        business_purpose:
+          type: string
+          nullable: true
+      required:
+        - transaction_date
+        - transaction_type
+        - description
+        - total_amount
+
+    UpdateTransactionBody:
+      type: object
+      properties:
+        transaction_date:
+          type: string
+          format: date
+        description:
+          type: string
+        vendor_id:
+          type: string
+          format: uuid
+          nullable: true
+        total_amount:
+          type: number
+        business_purpose:
+          type: string
+          nullable: true
+        status:
+          type: string
+
+    AddTransactionLinesBody:
+      type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionLineInput"
+      required:
+        - lines
+
+    TransactionLineInput:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+          nullable: true
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        debit:
+          type: number
+        credit:
+          type: number
+        memo:
+          type: string
+          nullable: true
+      required:
+        - debit
+        - credit
+
+    BalanceCheckResult:
+      type: object
+      properties:
+        is_balanced:
+          type: boolean
+        total_debits:
+          type: number
+        total_credits:
+          type: number
+        difference:
+          type: number
+      required:
+        - is_balanced
+        - total_debits
+        - total_credits
+        - difference
+
+    AllocationInput:
+      type: object
+      properties:
+        target_entity_id:
+          type: string
+          format: uuid
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        allocation_percent:
+          type: number
+          nullable: true
+        allocation_amount:
+          type: number
+        memo:
+          type: string
+          nullable: true
+        creates_intercompany_balance:
+          type: boolean
+      required:
+        - target_entity_id
+        - allocation_amount
+        - creates_intercompany_balance
+
+    CreateManualExpenseBody:
+      type: object
+      properties:
+        transaction_date:
+          type: string
+          format: date
+        vendor_id:
+          type: string
+          format: uuid
+          nullable: true
+        vendor_name:
+          type: string
+          nullable: true
+        description:
+          type: string
+        business_purpose:
+          type: string
+          nullable: true
+        total_amount:
+          type: number
+        paying_entity_id:
+          type: string
+          format: uuid
+        paying_account_id:
+          type: string
+          format: uuid
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        preset_id:
+          type: string
+          format: uuid
+          nullable: true
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationInput"
+      required:
+        - transaction_date
+        - description
+        - total_amount
+        - paying_entity_id
+        - paying_account_id
+        - allocations
+
+    CreateAllocationsBody:
+      type: object
+      properties:
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationInput"
+      required:
+        - allocations
+
+    AllocationPresetLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        preset_id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        entity_short_code:
+          type: string
+          nullable: true
+        entity_display_name:
+          type: string
+          nullable: true
+        entity_primary_color:
+          type: string
+          nullable: true
+        percent:
+          type: number
+      required:
+        - id
+        - preset_id
+        - entity_id
+        - percent
+
+    AllocationPreset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationPresetLine"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - is_active
+        - lines
+        - created_at
+        - updated_at
+
+    IntercompanyLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        owing_entity_id:
+          type: string
+          format: uuid
+        owing_entity_name:
+          type: string
+          nullable: true
+        owing_entity_color:
+          type: string
+          nullable: true
+        owed_entity_id:
+          type: string
+          format: uuid
+        owed_entity_name:
+          type: string
+          nullable: true
+        owed_entity_color:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        status:
+          type: string
+          enum:
+            - open
+            - partially_paid
+            - paid
+            - waived
+        memo:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - owing_entity_id
+        - owed_entity_id
+        - amount
+        - status
+        - created_at
+        - updated_at
+
+    MarkPaidBody:
+      type: object
+      properties:
+        payment_transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+
+    OwnerContribution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        entity_id:
+          type: string
+          format: uuid
+        entity_display_name:
+          type: string
+          nullable: true
+        entity_primary_color:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        contribution_type:
+          type: string
+          enum:
+            - capital_contribution
+            - owner_loan
+        memo:
+          type: string
+          nullable: true
+        contribution_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - entity_id
+        - amount
+        - contribution_type
+        - created_at
+
+    CreateOwnerContributionBody:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        contribution_type:
+          type: string
+          enum:
+            - capital_contribution
+            - owner_loan
+          default: capital_contribution
+        memo:
+          type: string
+          nullable: true
+        contribution_date:
+          type: string
+          format: date
+      required:
+        - entity_id
+        - amount
+        - contribution_date
+
+    ReimbursementRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        original_transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        owed_to_entity_id:
+          type: string
+          format: uuid
+        owed_to_entity_name:
+          type: string
+          nullable: true
+        owed_to_entity_color:
+          type: string
+          nullable: true
+        owed_by_entity_id:
+          type: string
+          format: uuid
+        owed_by_entity_name:
+          type: string
+          nullable: true
+        owed_by_entity_color:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        status:
+          type: string
+          enum:
+            - pending
+            - partially_paid
+            - paid
+            - waived
+            - converted_to_contribution
+        memo:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - owed_to_entity_id
+        - owed_by_entity_id
+        - amount
+        - status
+        - created_at
+        - updated_at
+
+    EntityDashboardCard:
+      type: object
+      properties:
+        entity:
+          $ref: "#/components/schemas/Entity"
+        operating_cash:
+          type: number
+        tax_reserve_balance:
+          type: number
+        pending_reimbursements:
+          type: number
+        intercompany_receivables:
+          type: number
+        intercompany_payables:
+          type: number
+        true_available_cash:
+          type: number
+        missing_evidence_count:
+          type: integer
+        unreconciled_count:
+          type: integer
+        monthly_close_status:
+          type: string
+          nullable: true
+      required:
+        - entity
+        - operating_cash
+        - tax_reserve_balance
+        - pending_reimbursements
+        - intercompany_receivables
+        - intercompany_payables
+        - true_available_cash
+        - missing_evidence_count
+        - unreconciled_count
+
+    DashboardSummary:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntityDashboardCard"
+        total_transactions_this_month:
+          type: integer
+        total_pending_reimbursements:
+          type: number
+        total_open_intercompany:
+          type: number
+        recent_transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+      required:
+        - entities
+        - total_transactions_this_month
+        - total_pending_reimbursements
+        - total_open_intercompany
+        - recent_transactions
+
+    TaxReserveRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        entity_display_name:
+          type: string
+          nullable: true
+        reserve_percent:
+          type: number
+        rule_basis:
+          type: string
+          enum:
+            - revenue
+            - net_income
+            - manual
+        is_active:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - entity_id
+        - reserve_percent
+        - rule_basis
+        - is_active
+        - created_at
+        - updated_at
+
+    TaxReserveSummary:
+      type: object
+      properties:
+        entity:
+          $ref: "#/components/schemas/Entity"
+        rule:
+          $ref: "#/components/schemas/TaxReserveRule"
+          nullable: true
+        current_reserve_balance:
+          type: number
+        suggested_set_aside:
+          type: number
+        last_revenue_amount:
+          type: number
+      required:
+        - entity
+        - current_reserve_balance
+        - suggested_set_aside
+        - last_revenue_amount
+
+    CreateTaxReserveRuleBody:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        reserve_percent:
+          type: number
+        rule_basis:
+          type: string
+          enum:
+            - revenue
+            - net_income
+            - manual
+        notes:
+          type: string
+          nullable: true
+      required:
+        - entity_id
+        - reserve_percent
+        - rule_basis
+
+    SuggestTaxTransferBody:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        revenue_amount:
+          type: number
+      required:
+        - entity_id
+        - revenue_amount
+
+    TaxTransferSuggestion:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        suggested_amount:
+          type: number
+        reserve_percent:
+          type: number
+        basis: 
+          type: string
+        disclaimer:
+          type: string
+      required:
+        - entity_id
+        - suggested_amount
+        - reserve_percent
+        - basis
+        - disclaimer
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_type:
+          type: string
+          enum:
+            - receipt
+            - invoice
+            - screenshot
+            - contract
+            - bank_statement
+            - subscription_receipt
+            - tax_document
+            - note
+            - other
+        file_name:
+          type: string
+          nullable: true
+        file_path:
+          type: string
+          nullable: true
+        entity_id:
+          type: string
+          format: uuid
+          nullable: true
+        entity_display_name:
+          type: string
+          nullable: true
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+        transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        period_month:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        evidence_status:
+          type: string
+          enum:
+            - metadata_only
+            - attached
+            - missing
+            - needs_review
+        uploaded_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - document_type
+        - evidence_status
+        - uploaded_at
+
+    CreateDocumentBody:
+      type: object
+      properties:
+        document_type:
+          type: string
+        file_name:
+          type: string
+          nullable: true
+        file_path:
+          type: string
+          nullable: true
+        entity_id:
+          type: string
+          format: uuid
+          nullable: true
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+        transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        period_month:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        evidence_status:
+          type: string
+          default: metadata_only
+      required:
+        - document_type
+
+    UpdateDocumentBody:
+      type: object
+      properties:
+        document_type:
+          type: string
+          nullable: true
+        file_name:
+          type: string
+          nullable: true
+        file_path:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        evidence_status:
+          type: string
+          nullable: true
+
+    Statement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        account_name:
+          type: string
+          nullable: true
+        statement_month:
+          type: string
+          format: date
+        opening_balance:
+          type: number
+          nullable: true
+        closing_balance:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum:
+            - uploaded
+            - reconciling
+            - reconciled
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - account_id
+        - statement_month
+        - status
+        - created_at
+        - updated_at
+
+    StatementLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        statement_id:
+          type: string
+          format: uuid
+        transaction_date:
+          type: string
+          format: date
+          nullable: true
+        posted_date:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        balance_after:
+          type: number
+          nullable: true
+        matched_transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum:
+            - unmatched
+            - matched
+            - ignored
+            - needs_review
+        notes:
+          type: string
+          nullable: true
+      required:
+        - id
+        - statement_id
+        - amount
+        - status
+
+    StatementDetail:
+      type: object
+      properties:
+        statement:
+          $ref: "#/components/schemas/Statement"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatementLine"
+      required:
+        - statement
+        - lines
+
+    CreateStatementBody:
+      type: object
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        statement_month:
+          type: string
+          format: date
+        opening_balance:
+          type: number
+          nullable: true
+        closing_balance:
+          type: number
+          nullable: true
+      required:
+        - account_id
+        - statement_month
+
+    AddStatementLinesBody:
+      type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatementLineInput"
+      required:
+        - lines
+
+    StatementLineInput:
+      type: object
+      properties:
+        transaction_date:
+          type: string
+          format: date
+          nullable: true
+        posted_date:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        balance_after:
+          type: number
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - amount
+
+    UpdateStatementLineBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - unmatched
+            - matched
+            - ignored
+            - needs_review
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    MatchStatementLineBody:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+        match_type:
+          type: string
+          default: manual
+      required:
+        - transaction_id
+
+    MonthlyClosePeriod:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        entity_display_name:
+          type: string
+          nullable: true
+        entity_primary_color:
+          type: string
+          nullable: true
+        period_month:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+            - open
+            - review
+            - closed
+            - reopened
+        all_statements_uploaded:
+          type: boolean
+        all_transactions_reconciled:
+          type: boolean
+        all_receipts_attached:
+          type: boolean
+        all_allocations_complete:
+          type: boolean
+        intercompany_reviewed:
+          type: boolean
+        tax_reserve_reviewed:
+          type: boolean
+        export_generated:
+          type: boolean
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        correction_required_after_close:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - entity_id
+        - period_month
+        - status
+        - all_statements_uploaded
+        - all_transactions_reconciled
+        - all_receipts_attached
+        - all_allocations_complete
+        - intercompany_reviewed
+        - tax_reserve_reviewed
+        - export_generated
+        - correction_required_after_close
+        - created_at
+        - updated_at
+
+    CreateMonthlyClosePeriodBody:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        period_month:
+          type: string
+          format: date
+      required:
+        - entity_id
+        - period_month
+
+    UpdateMonthlyClosePeriodBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - open
+            - review
+            - closed
+            - reopened
+        all_statements_uploaded:
+          type: boolean
+          nullable: true
+        all_transactions_reconciled:
+          type: boolean
+          nullable: true
+        all_receipts_attached:
+          type: boolean
+          nullable: true
+        all_allocations_complete:
+          type: boolean
+          nullable: true
+        intercompany_reviewed:
+          type: boolean
+          nullable: true
+        tax_reserve_reviewed:
+          type: boolean
+          nullable: true
+        export_generated:
+          type: boolean
+          nullable: true
+        correction_memo:
+          type: string
+          nullable: true
+
+    ExportResult:
+      type: object
+      properties:
+        export_type:
+          type: string
+        period_month:
+          type: string
+          format: date
+          nullable: true
+        entity_id:
+          type: string
+          format: uuid
+          nullable: true
+        record_count:
+          type: integer
+        records:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        generated_at:
+          type: string
+          format: date-time
+      required:
+        - export_type
+        - record_count
+        - records
+        - generated_at
