@@ -1,6 +1,10 @@
 # Founders Finance
 
-A private internal tool for tracking finances across three entities — Studio Maestro LLC, Recursive Chaos Labs LLC, and Personal / Founder — built for a solo founder managing multiple LLCs.
+A private internal tool for tracking finances across founder-controlled companies and the Personal / Founder record, built for a solo founder managing multiple entities.
+
+## Project Work Protocol
+
+Before starting repository work, read [Master TODO](docs/MASTER_TODO.md) and follow the mandatory double-read/double-pass session protocol in [AGENTS.md](AGENTS.md). The master TODO is the canonical source for priority and completion status.
 
 ## Stack
 
@@ -116,6 +120,7 @@ For known limitations, see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common problems, likely causes, and safe fixes |
 | [Feature Status](docs/FEATURE_STATUS.md) | Full feature matrix — what is complete, partial, or not started; risk levels and next actions |
 | [Next Build Steps](docs/NEXT_BUILD_STEPS.md) | Recommended development sequence and the suggested next prompt for continuing work |
+| [Master TODO](docs/MASTER_TODO.md) | Canonical prioritized work list, verification evidence, and session handoff log |
 
 ## Further Reading
 
