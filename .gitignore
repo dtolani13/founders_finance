@@ -60,6 +60,7 @@ Thumbs.db
 *.sql
 *.sql.gz
 *.backup
+!lib/db/drizzle/*.sql
 db-dumps/
 backups/
 

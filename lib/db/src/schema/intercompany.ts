@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { transactions } from "./transactions";
@@ -15,7 +16,11 @@ export const intercompany_links = pgTable("intercompany_links", {
   memo: text("memo"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check("intercompany_links_amount_positive", sql`${table.amount} > 0`),
+  check("intercompany_links_distinct_entities", sql`${table.owing_entity_id} <> ${table.owed_entity_id}`),
+  check("intercompany_links_status_check", sql`${table.status} in ('open', 'partially_paid', 'paid', 'waived')`),
+]);
 
 export const insertIntercompanyLinkSchema = createInsertSchema(intercompany_links).omit({ id: true, created_at: true, updated_at: true });
 export type InsertIntercompanyLink = z.infer<typeof insertIntercompanyLinkSchema>;

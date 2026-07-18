@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { intercompany_links, entities } from "@workspace/db";
-import { eq, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { FinancialOperationError, settleIntercompanyLink } from "../services/financial-operations";
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get("/balances", async (req, res) => {
 });
 
 const markPaidSchema = z.object({
-  payment_transaction_id: z.string().uuid().nullable().optional(),
+  payment_date: z.string().optional(),
   memo: z.string().nullable().optional(),
 });
 
@@ -42,22 +43,12 @@ router.post("/:id/mark-paid", async (req, res) => {
   try {
     const { id } = req.params;
     const body = markPaidSchema.parse(req.body);
-    const rows = await db.update(intercompany_links)
-      .set({
-        status: "paid",
-        reimbursement_transaction_id: body.payment_transaction_id ?? null,
-        memo: body.memo ?? null,
-        updated_at: new Date(),
-      })
-      .where(eq(intercompany_links.id, id))
-      .returning();
-    if (!rows.length) return res.status(404).json({ error: "Intercompany link not found" });
+    const link = await settleIntercompanyLink(id, body);
 
     const owedEntities = await db.select({ id: entities.id, display_name: entities.display_name, primary_color: entities.primary_color }).from(entities);
     const owedMap: Record<string, { display_name: string; primary_color: string | null }> = {};
     owedEntities.forEach(e => { owedMap[e.id] = e; });
 
-    const link = rows[0];
     const owingEntity = owedMap[link.owing_entity_id];
     const owedEntity = owedMap[link.owed_entity_id];
 
@@ -70,6 +61,7 @@ router.post("/:id/mark-paid", async (req, res) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof FinancialOperationError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to mark intercompany paid");
     res.status(500).json({ error: "Internal server error" });
   }

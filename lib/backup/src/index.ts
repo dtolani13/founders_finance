@@ -191,6 +191,30 @@ export function resolvePostgresTool(tool: "pg_dump" | "pg_restore", postgresBin?
   return tool;
 }
 
+export async function resolvePostgresToolForDatabase(
+  tool: "pg_dump" | "pg_restore",
+  databaseUrl: string,
+  postgresBin?: string,
+): Promise<string> {
+  if (postgresBin) return resolvePostgresTool(tool, postgresBin);
+  if (process.platform !== "win32") return resolvePostgresTool(tool);
+
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const result = await client.query<{ server_version_num: string }>("show server_version_num");
+    const versionNumber = Number(result.rows[0]?.server_version_num ?? 0);
+    const majorVersion = Math.floor(versionNumber / 10_000);
+    if (majorVersion > 0) {
+      const candidate = `C:\\Program Files\\PostgreSQL\\${majorVersion}\\bin\\${tool}.exe`;
+      if (existsSync(candidate)) return candidate;
+    }
+  } finally {
+    await client.end();
+  }
+  return resolvePostgresTool(tool);
+}
+
 export async function getTableCounts(databaseUrl: string): Promise<Record<string, number>> {
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
@@ -392,7 +416,7 @@ export async function createBackup(config: BackupConfig): Promise<BackupMetadata
     error: null,
   };
   try {
-    await run(resolvePostgresTool("pg_dump", config.postgresBin), [
+    await run(await resolvePostgresToolForDatabase("pg_dump", config.databaseUrl, config.postgresBin), [
       "--format=custom", "--no-owner", "--no-privileges", "--file", dumpPath, config.databaseUrl,
     ]);
     const evidenceRoot = join(packageRoot, "evidence");
@@ -537,7 +561,7 @@ export async function runRecoveryDrill(
     await maintenance.connect();
     maintenanceConnected = true;
     await maintenance.query(`CREATE DATABASE "${drillDatabase}"`);
-    await run(resolvePostgresTool("pg_restore", postgresBin), [
+    await run(await resolvePostgresToolForDatabase("pg_restore", drillUrl.toString(), postgresBin), [
       "--no-owner", "--no-privileges", "--exit-on-error", "--dbname", drillUrl.toString(),
       join(inspected.extractedRoot, inspected.manifest.database.file),
     ]);
@@ -633,7 +657,7 @@ export async function restoreBackup(config: BackupConfig, id: string): Promise<{
   let preRestore: BackupMetadata | null = null;
   try {
     preRestore = await createBackup(config);
-    await run(resolvePostgresTool("pg_restore", config.postgresBin), [
+    await run(await resolvePostgresToolForDatabase("pg_restore", config.databaseUrl, config.postgresBin), [
       "--clean", "--if-exists", "--no-owner", "--no-privileges", "--exit-on-error",
       "--dbname", config.databaseUrl, join(inspected.extractedRoot, inspected.manifest.database.file),
     ]);

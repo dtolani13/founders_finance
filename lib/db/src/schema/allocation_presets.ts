@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { entities } from "./entities";
@@ -17,7 +18,9 @@ export const allocation_preset_lines = pgTable("allocation_preset_lines", {
   preset_id: uuid("preset_id").references(() => allocation_presets.id, { onDelete: "cascade" }).notNull(),
   entity_id: uuid("entity_id").references(() => entities.id).notNull(),
   percent: numeric("percent", { precision: 7, scale: 4 }).notNull(),
-});
+}, (table) => [
+  check("allocation_preset_lines_percent_range", sql`${table.percent} >= 0 and ${table.percent} <= 100`),
+]);
 
 export const insertAllocationPresetSchema = createInsertSchema(allocation_presets).omit({ id: true, created_at: true, updated_at: true });
 export type InsertAllocationPreset = z.infer<typeof insertAllocationPresetSchema>;

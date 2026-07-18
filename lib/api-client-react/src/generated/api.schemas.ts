@@ -320,7 +320,7 @@ export interface IntercompanyLink {
 }
 
 export interface MarkPaidBody {
-  payment_transaction_id?: string | null;
+  payment_date?: string;
   memo?: string | null;
 }
 

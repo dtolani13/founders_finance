@@ -5,7 +5,7 @@ import { entities } from "./entities";
 
 export const accounts = pgTable("accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entity_id: uuid("entity_id").references(() => entities.id),
+  entity_id: uuid("entity_id").references(() => entities.id).notNull(),
   name: text("name").notNull(),
   account_type: text("account_type").notNull(),
   institution_name: text("institution_name"),

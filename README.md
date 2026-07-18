@@ -24,7 +24,7 @@ artifacts/
   api-server/       — Express REST API, binds to $PORT
   founders-finance/   — React + Vite SPA, binds to $PORT
 lib/
-  db/               — Drizzle ORM schema, migration via drizzle-kit push
+  db/               — Drizzle ORM schema and committed migrations
   api-spec/         — OpenAPI 3.0 spec + Orval codegen config
   api-client-react/ — Generated React Query hooks (do not edit manually)
   api-zod/          — Generated Zod validation schemas (do not edit manually)
@@ -43,8 +43,8 @@ scripts/            — Shared utility scripts
 # Install all workspace dependencies
 pnpm install
 
-# Push the full schema to the database (creates all tables)
-pnpm --filter @workspace/db run push
+# Apply all committed migrations (creates all tables on a new database)
+pnpm run db:migrate
 ```
 
 ## Running Locally
@@ -71,8 +71,12 @@ pnpm run typecheck
 # Regenerate API client from the OpenAPI spec (run after editing openapi.yaml)
 pnpm --filter @workspace/api-spec run codegen
 
-# Push schema changes to the database (no migration files — uses drizzle-kit push)
-pnpm --filter @workspace/db run push
+# Inspect and apply committed database migrations
+pnpm run db:migrate:status
+pnpm run db:migrate
+
+# Generate a migration after changing a schema file
+pnpm run db:generate
 ```
 
 ## Entities
@@ -80,8 +84,11 @@ pnpm --filter @workspace/db run push
 | Entity | Short Code | Color |
 |---|---|---|
 | Studio Maestro LLC | SM | `#7C3AED` (violet) |
+| Polymathic Systems LLC | POLY | `#0EA5E9` (blue) |
 | Recursive Chaos Labs LLC | RCL | `#111827` (near-black) |
 | Personal / Founder | PERSONAL | `#6B7280` (gray) |
+
+Additional companies can be created in Settings. Each receives a default checking account and tax-reserve account.
 
 ## Notes
 
@@ -101,7 +108,7 @@ This is a private single-user financial tool. The following controls are in plac
 | Transaction deletes | Soft-delete only — `DELETE /transactions/:id` voids the record (`status="voided"`), never destroys data |
 | Posted transactions | Cannot be voided without an explicit `/void` call; 409 returned on attempt |
 | Statement deletes | Blocked with 409 if any matched lines exist — reconciliation work is protected |
-| Closed period edits | Require a `correction_memo` — API returns 409 without one |
+| Closed period edits | Ledger mutations are blocked until the period is explicitly reopened with a correction memo |
 | File path inputs | Sanitized on write — `../` path traversal sequences are stripped from `file_path` fields |
 | Personal expenses | UI warns on every PERSONAL entity allocation (non-deductible flag) |
 
@@ -121,6 +128,7 @@ For known limitations, see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md
 | [Feature Status](docs/FEATURE_STATUS.md) | Full feature matrix — what is complete, partial, or not started; risk levels and next actions |
 | [Next Build Steps](docs/NEXT_BUILD_STEPS.md) | Recommended development sequence and the suggested next prompt for continuing work |
 | [Master TODO](docs/MASTER_TODO.md) | Canonical prioritized work list, verification evidence, and session handoff log |
+| [Database Migrations](docs/DATABASE_MIGRATIONS.md) | Safe schema-change, baseline-adoption, status, and acceptance procedures |
 
 ## Further Reading
 

@@ -55,15 +55,16 @@ Or using psql:
 CREATE DATABASE founders_finance;
 ```
 
-### Push the schema
+### Apply the schema
 
-This creates all tables from the Drizzle schema. Run this once on first setup and again after any schema changes:
+This applies the committed migration chain. Run it on first setup and whenever the repository adds a migration:
 
 ```bash
-pnpm --filter @workspace/db run push
+pnpm run db:migrate:status
+pnpm run db:migrate
 ```
 
-This is non-destructive for existing data unless you have explicitly dropped or renamed columns in the schema files.
+Do not use `drizzle-kit push` against a database containing financial data. See [Database Migrations](DATABASE_MIGRATIONS.md) for baseline adoption and the disposable-database acceptance drill.
 
 ---
 
@@ -126,7 +127,7 @@ pnpm --filter @workspace/api-spec run codegen
 pnpm run typecheck
 ```
 
-This runs `tsc --noEmit` across all workspace packages. Pre-existing `TS7030` errors in some route files are a known accepted pattern. Any new errors should be resolved before deploying.
+This runs TypeScript verification across all workspace packages. Any error must be resolved before deploying.
 
 ---
 
@@ -168,7 +169,7 @@ Common causes:
 - `DATABASE_URL` not set → set it in `.env` or local environment variables
 - PostgreSQL not running → start postgres service
 - Database does not exist → run `createdb founders_finance`
-- Schema not pushed → run `pnpm --filter @workspace/db run push`
+- Migrations pending → run `pnpm run db:migrate:status`, then `pnpm run db:migrate`
 
 ### Frontend cannot reach the API
 
@@ -197,12 +198,12 @@ pnpm --filter @workspace/api-spec run codegen
 pnpm run typecheck
 ```
 
-### Schema push fails
+### Database migration fails
 
-If `pnpm --filter @workspace/db run push` fails with a column conflict, the database has data in a column that the schema is trying to modify. Options:
+If `pnpm run db:migrate` fails, preserve the first database error and run `pnpm run db:migrate:status`. Migrations are transactional, so a failed migration remains pending.
 
-1. If this is a development database with no important data: drop and recreate the database, then push again
-2. If this is production data: write a manual migration SQL and run it directly before pushing
+1. For a disposable development database, recreate it and run `pnpm run db:migrate`.
+2. For financial data, do not drop or patch the database manually. Verify the pre-migration backup, correct the migration in source, and run `pnpm run db:migrate:acceptance` before retrying.
 
 ### Port already in use
 

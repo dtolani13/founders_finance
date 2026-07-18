@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, timestamp, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { transactions } from "./transactions";
@@ -15,7 +16,14 @@ export const reimbursement_requests = pgTable("reimbursement_requests", {
   memo: text("memo"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check("reimbursement_requests_amount_positive", sql`${table.amount} > 0`),
+  check("reimbursement_requests_distinct_entities", sql`${table.owed_to_entity_id} <> ${table.owed_by_entity_id}`),
+  check(
+    "reimbursement_requests_status_check",
+    sql`${table.status} in ('pending', 'partially_paid', 'paid', 'waived', 'converted')`,
+  ),
+]);
 
 export const insertReimbursementRequestSchema = createInsertSchema(reimbursement_requests).omit({ id: true, created_at: true, updated_at: true });
 export type InsertReimbursementRequest = z.infer<typeof insertReimbursementRequestSchema>;

@@ -112,7 +112,7 @@ src/routes/
 ## Database
 
 - ORM: Drizzle ORM with `drizzle-zod` for schema-derived Zod types
-- Migrations: schema-push only (`drizzle-kit push`) — no migration files
+- Migrations: committed ordered SQL under `lib/db/drizzle/`, applied through the root migration commands
 - Connection: single `Pool` instance in `lib/db/src/index.ts`, shared across all routes
 
 ## Shared Libraries

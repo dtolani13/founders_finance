@@ -3,10 +3,17 @@ import { db } from "@workspace/db";
 import {
   transactions, transaction_lines, expense_allocations,
   vendors, entities, accounts, categories,
-  intercompany_links, reimbursement_requests
 } from "@workspace/db";
-import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
+import {
+  AccountingError,
+  createTransactionHeader,
+  postTransaction,
+  replaceTransactionLines,
+  updateTransactionRecord,
+  voidTransaction,
+} from "../services/accounting";
 
 const router = Router();
 
@@ -25,7 +32,6 @@ const updateTransactionSchema = z.object({
   vendor_id: z.string().uuid().nullable().optional(),
   total_amount: z.number().positive().optional(),
   business_purpose: z.string().nullable().optional(),
-  status: z.string().optional(),
 });
 
 async function enrichTransactions(rows: typeof transactions.$inferSelect[]) {
@@ -89,14 +95,12 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const body = createTransactionSchema.parse(req.body);
-    const rows = await db.insert(transactions).values({
-      ...body,
-      total_amount: String(body.total_amount),
-    }).returning();
-    const [enriched] = await enrichTransactions(rows);
+    const created = await createTransactionHeader(body);
+    const [enriched] = await enrichTransactions([created]);
     res.status(201).json(enriched);
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof AccountingError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to create transaction");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -146,14 +150,12 @@ router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const body = updateTransactionSchema.parse(req.body);
-    const update: Record<string, unknown> = { ...body, updated_at: new Date() };
-    if (body.total_amount !== undefined) update.total_amount = String(body.total_amount);
-    const rows = await db.update(transactions).set(update).where(eq(transactions.id, id)).returning();
-    if (!rows.length) return res.status(404).json({ error: "Transaction not found" });
-    const [enriched] = await enrichTransactions(rows);
+    const updated = await updateTransactionRecord(id, body);
+    const [enriched] = await enrichTransactions([updated]);
     res.json(enriched);
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof AccountingError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to update transaction");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -174,23 +176,7 @@ router.post("/:id/lines", async (req, res) => {
   try {
     const { id } = req.params;
     const { lines } = addLinesSchema.parse(req.body);
-    const txRows = await db.select().from(transactions).where(eq(transactions.id, id));
-    if (!txRows.length) return res.status(404).json({ error: "Transaction not found" });
-
-    await db.delete(transaction_lines).where(eq(transaction_lines.transaction_id, id));
-    await db.insert(transaction_lines).values(
-      lines.map(l => ({
-        transaction_id: id,
-        ...l,
-        debit: String(l.debit),
-        credit: String(l.credit),
-      }))
-    );
-
-    const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
-    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
-    const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
-    await db.update(transactions).set({ is_balanced: isBalanced, updated_at: new Date() }).where(eq(transactions.id, id));
+    await replaceTransactionLines(id, lines);
 
     const result = await db.select({
       line: transaction_lines,
@@ -205,14 +191,29 @@ router.post("/:id/lines", async (req, res) => {
       .where(eq(transaction_lines.transaction_id, id));
 
     const txFinal = await db.select().from(transactions).where(eq(transactions.id, id));
+    const allocs = await db.select({
+      alloc: expense_allocations,
+      entity_short_code: entities.short_code,
+      entity_display_name: entities.display_name,
+      entity_primary_color: entities.primary_color,
+    })
+      .from(expense_allocations)
+      .leftJoin(entities, eq(expense_allocations.target_entity_id, entities.id))
+      .where(eq(expense_allocations.transaction_id, id));
     const [enriched] = await enrichTransactions(txFinal);
     res.json({
       transaction: enriched,
       lines: result.map(l => ({ ...l.line, entity_short_code: l.entity_short_code, account_name: l.account_name, category_name: l.category_name })),
-      allocations: [],
+      allocations: allocs.map(a => ({
+        ...a.alloc,
+        entity_short_code: a.entity_short_code,
+        entity_display_name: a.entity_display_name,
+        entity_primary_color: a.entity_primary_color,
+      })),
     });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof AccountingError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to add transaction lines");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -224,24 +225,11 @@ router.post("/:id/lines", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRe.test(id)) return res.status(404).json({ error: "Transaction not found" });
-    const existing = await db.select().from(transactions).where(eq(transactions.id, id));
-    if (!existing.length) return res.status(404).json({ error: "Transaction not found" });
-    if (existing[0].status === "voided") {
-      return res.status(409).json({ error: "Transaction is already voided" });
-    }
-    if (existing[0].status === "posted") {
-      return res.status(409).json({ error: "Posted transactions cannot be deleted. Use the void action instead." });
-    }
-    const rows = await db.update(transactions)
-      .set({ status: "voided", updated_at: new Date() })
-      .where(eq(transactions.id, id))
-      .returning();
-    req.log.info({ id, previous_status: existing[0].status }, "Transaction voided (soft-delete)");
-    const [enriched] = await enrichTransactions(rows);
+    const updated = await voidTransaction(id);
+    const [enriched] = await enrichTransactions([updated]);
     return res.json({ voided: true, transaction: enriched });
   } catch (err) {
+    if (err instanceof AccountingError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to void transaction");
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -250,21 +238,11 @@ router.delete("/:id", async (req, res) => {
 router.post("/:id/void", async (req, res) => {
   try {
     const { id } = req.params;
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRe.test(id)) return res.status(404).json({ error: "Transaction not found" });
-    const existing = await db.select().from(transactions).where(eq(transactions.id, id));
-    if (!existing.length) return res.status(404).json({ error: "Transaction not found" });
-    if (existing[0].status === "voided") {
-      return res.status(409).json({ error: "Transaction is already voided" });
-    }
-    const rows = await db.update(transactions)
-      .set({ status: "voided", updated_at: new Date() })
-      .where(eq(transactions.id, id))
-      .returning();
-    req.log.info({ id, previous_status: existing[0].status }, "Transaction voided");
-    const [enriched] = await enrichTransactions(rows);
+    const updated = await voidTransaction(id, { allowPosted: true });
+    const [enriched] = await enrichTransactions([updated]);
     return res.json(enriched);
   } catch (err) {
+    if (err instanceof AccountingError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to void transaction");
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -288,20 +266,11 @@ router.post("/:id/balance-check", async (req, res) => {
 router.post("/:id/post", async (req, res) => {
   try {
     const { id } = req.params;
-    const lines = await db.select().from(transaction_lines).where(eq(transaction_lines.transaction_id, id));
-    if (lines.length < 2) return res.status(400).json({ error: "At least 2 lines required for a posted transaction" });
-
-    const totalDebits = lines.reduce((s, l) => s + parseFloat(String(l.debit)), 0);
-    const totalCredits = lines.reduce((s, l) => s + parseFloat(String(l.credit)), 0);
-    if (Math.abs(totalDebits - totalCredits) >= 0.01) {
-      return res.status(400).json({ error: "Transaction is not balanced. Debits must equal credits." });
-    }
-
-    const rows = await db.update(transactions).set({ status: "posted", is_balanced: true, updated_at: new Date() }).where(eq(transactions.id, id)).returning();
-    if (!rows.length) return res.status(404).json({ error: "Transaction not found" });
-    const [enriched] = await enrichTransactions(rows);
+    const updated = await postTransaction(id);
+    const [enriched] = await enrichTransactions([updated]);
     res.json(enriched);
   } catch (err) {
+    if (err instanceof AccountingError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to post transaction");
     res.status(500).json({ error: "Internal server error" });
   }

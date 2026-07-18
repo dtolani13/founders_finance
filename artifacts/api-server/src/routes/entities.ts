@@ -1,9 +1,16 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { accounts, entities } from "@workspace/db";
+import { entities } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { writeAuditLog } from "../lib/audit";
+import {
+  archiveCompany,
+  closeCompany,
+  CompanyLifecycleError,
+  createCompany,
+  reopenCompany,
+  updateCompany,
+} from "../services/company-lifecycle";
 
 const router = Router();
 
@@ -62,52 +69,10 @@ const createEntitySchema = z.object({
 router.post("/", async (req, res) => {
   try {
     const body = createEntitySchema.parse(req.body);
-    const [entity] = await db.insert(entities).values({
-      legal_name: body.legal_name,
-      display_name: body.display_name,
-      short_code: body.short_code,
-      entity_type: body.entity_type,
-      purpose: body.purpose ?? null,
-      tax_classification_note: body.tax_classification_note ?? null,
-      primary_color: body.primary_color ?? "#00AEEF",
-      secondary_color: body.secondary_color ?? "#0B1726",
-      accent_color: body.accent_color ?? "#7DD3FC",
-      lifecycle_status: "active",
-      is_active: true,
-    }).returning();
-
-    await db.insert(accounts).values([
-      {
-        entity_id: entity.id,
-        name: `${entity.short_code} Checking`,
-        account_type: "checking",
-        opening_balance: "0",
-        current_balance: "0",
-        is_tax_reserve: false,
-        is_active: true,
-      },
-      {
-        entity_id: entity.id,
-        name: `${entity.short_code} Tax Reserve`,
-        account_type: "savings",
-        opening_balance: "0",
-        current_balance: "0",
-        is_tax_reserve: true,
-        is_active: true,
-      },
-    ]);
-
-    await writeAuditLog({
-      tableName: "entities",
-      recordId: entity.id,
-      action: "create",
-      newValue: entity,
-      memo: "Entity created with default checking and tax reserve accounts.",
-    });
-
-    res.status(201).json(entity);
+    res.status(201).json(await createCompany(body));
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof CompanyLifecycleError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to create entity");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -117,41 +82,10 @@ router.post("/:id/close", async (req, res) => {
   try {
     const { id } = req.params;
     const body = lifecycleSchema.parse(req.body ?? {});
-    const [existing] = await db.select().from(entities).where(eq(entities.id, id));
-    if (!existing) return res.status(404).json({ error: "Entity not found" });
-    if (existing.short_code === "PERSONAL") {
-      return res.status(400).json({ error: "Personal founder record cannot be closed." });
-    }
-
-    const now = new Date();
-    const rows = await db.update(entities)
-      .set({
-        lifecycle_status: "closed",
-        is_active: false,
-        closed_at: existing.closed_at ?? now,
-        archive_until: body.archive_until ?? existing.archive_until,
-        archive_reason: body.archive_reason ?? existing.archive_reason,
-        updated_at: now,
-      })
-      .where(eq(entities.id, id))
-      .returning();
-
-    await db.update(accounts)
-      .set({ is_active: false, updated_at: now })
-      .where(eq(accounts.entity_id, id));
-
-    await writeAuditLog({
-      tableName: "entities",
-      recordId: id,
-      action: "close",
-      previousValue: existing,
-      newValue: rows[0],
-      memo: "Entity closed. Records preserved and entity accounts deactivated.",
-    });
-
-    res.json(rows[0]);
+    res.json(await closeCompany(id, body));
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof CompanyLifecycleError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to close entity");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -161,41 +95,10 @@ router.post("/:id/archive", async (req, res) => {
   try {
     const { id } = req.params;
     const body = lifecycleSchema.parse(req.body ?? {});
-    const [existing] = await db.select().from(entities).where(eq(entities.id, id));
-    if (!existing) return res.status(404).json({ error: "Entity not found" });
-    if (existing.short_code === "PERSONAL") {
-      return res.status(400).json({ error: "Personal founder record cannot be archived." });
-    }
-
-    const now = new Date();
-    const rows = await db.update(entities)
-      .set({
-        lifecycle_status: "archived",
-        is_active: false,
-        closed_at: existing.closed_at ?? now,
-        archive_until: body.archive_until ?? existing.archive_until,
-        archive_reason: body.archive_reason ?? existing.archive_reason ?? "Archived for recordkeeping.",
-        updated_at: now,
-      })
-      .where(eq(entities.id, id))
-      .returning();
-
-    await db.update(accounts)
-      .set({ is_active: false, updated_at: now })
-      .where(eq(accounts.entity_id, id));
-
-    await writeAuditLog({
-      tableName: "entities",
-      recordId: id,
-      action: "archive",
-      previousValue: existing,
-      newValue: rows[0],
-      memo: "Entity archived for recordkeeping. Records preserved and entity accounts deactivated.",
-    });
-
-    res.json(rows[0]);
+    res.json(await archiveCompany(id, body));
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof CompanyLifecycleError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to archive entity");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -204,35 +107,9 @@ router.post("/:id/archive", async (req, res) => {
 router.post("/:id/reopen", async (req, res) => {
   try {
     const { id } = req.params;
-    const [existing] = await db.select().from(entities).where(eq(entities.id, id));
-    if (!existing) return res.status(404).json({ error: "Entity not found" });
-
-    const now = new Date();
-    const rows = await db.update(entities)
-      .set({
-        lifecycle_status: "active",
-        is_active: true,
-        closed_at: null,
-        updated_at: now,
-      })
-      .where(eq(entities.id, id))
-      .returning();
-
-    await db.update(accounts)
-      .set({ is_active: true, updated_at: now })
-      .where(eq(accounts.entity_id, id));
-
-    await writeAuditLog({
-      tableName: "entities",
-      recordId: id,
-      action: "reopen",
-      previousValue: existing,
-      newValue: rows[0],
-      memo: "Entity reopened and entity accounts reactivated.",
-    });
-
-    res.json(rows[0]);
+    res.json(await reopenCompany(id));
   } catch (err) {
+    if (err instanceof CompanyLifecycleError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to reopen entity");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -242,21 +119,10 @@ router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const body = updateEntitySchema.parse(req.body);
-    const rows = await db.update(entities)
-      .set({ ...body, updated_at: new Date() })
-      .where(eq(entities.id, id))
-      .returning();
-    if (!rows.length) return res.status(404).json({ error: "Entity not found" });
-    await writeAuditLog({
-      tableName: "entities",
-      recordId: id,
-      action: "update",
-      newValue: rows[0],
-      memo: "Entity settings updated.",
-    });
-    res.json(rows[0]);
+    res.json(await updateCompany(id, body));
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof CompanyLifecycleError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to update entity");
     res.status(500).json({ error: "Internal server error" });
   }

@@ -2093,10 +2093,9 @@ components:
     MarkPaidBody:
       type: object
       properties:
-        payment_transaction_id:
+        payment_date:
           type: string
-          format: uuid
-          nullable: true
+          format: date
         memo:
           type: string
           nullable: true

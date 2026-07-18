@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { reimbursement_requests, entities } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { FinancialOperationError, settleReimbursement } from "../services/financial-operations";
 
 const router = Router();
 
@@ -35,7 +36,7 @@ router.get("/", async (req, res) => {
 });
 
 const markPaidSchema = z.object({
-  payment_transaction_id: z.string().uuid().nullable().optional(),
+  payment_date: z.string().optional(),
   memo: z.string().nullable().optional(),
 });
 
@@ -43,17 +44,12 @@ router.post("/:id/mark-paid", async (req, res) => {
   try {
     const { id } = req.params;
     const body = markPaidSchema.parse(req.body);
-    const rows = await db.update(reimbursement_requests)
-      .set({ status: "paid", paid_transaction_id: body.payment_transaction_id ?? null, memo: body.memo ?? null, updated_at: new Date() })
-      .where(eq(reimbursement_requests.id, id))
-      .returning();
-    if (!rows.length) return res.status(404).json({ error: "Reimbursement not found" });
+    const r = await settleReimbursement(id, body);
 
     const allEntities = await db.select({ id: entities.id, display_name: entities.display_name, primary_color: entities.primary_color }).from(entities);
     const entityMap: Record<string, { display_name: string; primary_color: string | null }> = {};
     allEntities.forEach(e => { entityMap[e.id] = e; });
 
-    const r = rows[0];
     res.json({
       ...r,
       owed_to_entity_name: entityMap[r.owed_to_entity_id]?.display_name ?? null,
@@ -63,6 +59,7 @@ router.post("/:id/mark-paid", async (req, res) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof FinancialOperationError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to mark reimbursement paid");
     res.status(500).json({ error: "Internal server error" });
   }

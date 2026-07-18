@@ -2,7 +2,7 @@
 
 This is the canonical source of truth for repository priority, completion status, verification evidence, and session handoff.
 
-Last repository alignment review: **2026-07-17**
+Last repository alignment review: **2026-07-18**
 
 ## Status Key
 
@@ -46,13 +46,13 @@ Full operating rules are in `AGENTS.md`.
   - New packages are automatically decrypted and verified; live restore requires an exact confirmation phrase, creates an encrypted pre-restore backup, and checks database rows plus final evidence fingerprints.
   - Verified: a real local package containing all 24 public tables plus a synthetic evidence fixture was created, verified, restored into an isolated clean database, compared successfully, and removed after the drill.
 
-- [ ] **Versioned database migrations**
+- [x] **Versioned database migrations**
   - Replace production reliance on `drizzle-kit push` with committed, ordered migration files.
   - Add migration status and startup/deployment guidance.
   - Include current entity lifecycle columns in the migration baseline.
   - Acceptance: an empty database and a copy of the current database both reach the same schema through migrations without data loss.
 
-- [ ] **Atomic accounting integrity and period enforcement**
+- [x] **Atomic accounting integrity and period enforcement**
   - Move multi-record finance operations into centralized service functions wrapped in database transactions.
   - Prevent general update, line-replacement, and allocation endpoints from changing posted or voided transactions.
   - Enforce closed-period guards on transaction creation, editing, posting, voiding, allocation, reconciliation, and settlement operations.
@@ -61,8 +61,7 @@ Full operating rules are in `AGENTS.md`.
   - Acceptance: forced failures leave no partial records; posted history is immutable; closed months reject unauthorized mutations; every generated journal remains balanced and traceable.
 
 - [~] **Automated accounting and lifecycle test suite**
-  - A root `pnpm test` command and initial authentication/security boundary suite now exist.
-  - Add integration tests for expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation, company close/archive/reopen, and audit logging.
+  - A root `pnpm test` command now covers authentication, encrypted backup primitives, expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation/settlement, reimbursement payment, owner contributions, reconciliation, monthly close/reopen, company lifecycle, rollback, idempotency, and audit logging.
   - Add frontend workflow tests for critical forms and destructive confirmations.
   - Acceptance: tests run from one documented root command and fail on known integrity regressions.
 
@@ -87,7 +86,8 @@ Full operating rules are in `AGENTS.md`.
 
 - [~] **Company lifecycle management**
   - Add, edit, close, archive, retention date/reason, and reopen are implemented.
-  - Add automated tests, account-balance closure warnings, open-obligation warnings, and archived-company export/reporting.
+  - Automated lifecycle, personal-record protection, account-state, audit, and rollback tests are implemented.
+  - Add account-balance closure warnings, open-obligation warnings, and archived-company export/reporting.
   - Decide whether archived account reactivation should restore all accounts or only accounts active before closure.
   - Acceptance: lifecycle tests cover open balances, statements, evidence, tax rules, and account-state restoration.
 
@@ -97,12 +97,13 @@ Full operating rules are in `AGENTS.md`.
   - Ensure every material mutation writes an audit event.
   - Acceptance: mutation coverage audit identifies no critical unlogged financial operation.
 
-- [ ] **Intercompany settlement accounting**
+- [~] **Intercompany settlement accounting**
   - Marking an intercompany balance paid should create and link a balanced settlement transaction.
-  - Prevent duplicate settlement and preserve reversal history.
+  - Balanced linked settlement journals and duplicate prevention are implemented; add an explicit reversal workflow and settlement-account selector for companies with multiple checking accounts.
   - Acceptance: both entities' ledger impact and the intercompany link reconcile to zero.
 
-- [ ] **Reimbursement completion actions**
+- [~] **Reimbursement completion actions**
+  - Payment now creates and links a balanced, audited journal and rejects duplicate processing.
   - Add waive and convert-to-contribution flows with confirmation, transaction linkage, and audit entries.
   - Acceptance: paid, waived, and converted states produce traceable accounting outcomes.
 
@@ -187,26 +188,23 @@ Full operating rules are in `AGENTS.md`.
 
 ## Current Alignment Findings
 
-Verified against the repository on 2026-07-17:
+Verified against the repository on 2026-07-18:
 
-- Authentication tests and a root test command exist; broad accounting, company lifecycle, and frontend workflow coverage is still absent.
-- Only two test files exist, covering owner authentication and encrypted backup primitives; no ledger workflow or browser workflow tests exist.
-- Authentication is implemented, owner access is configured locally, and live finance endpoints reject unauthenticated requests.
-- No evidence multipart upload or file-serving endpoint is present.
-- Database changes use schema push; committed migrations are absent.
-- Multi-record expense, allocation, statement, and settlement writes do not use database transactions, so partial records are possible after a mid-operation failure.
-- Posted transactions can still be changed through general transaction, line-replacement, and allocation endpoints; monthly close state is not enforced by ledger mutation routes.
-- Core transaction and allocation tables lack several useful database-level integrity constraints, leaving important correctness rules entirely in route code.
-- Encrypted database-plus-evidence backup, automatic verification, recovery drills, download, and guarded live restore are implemented in the app and CLI.
-- Audit persistence exists, but there is no audit viewer route in the frontend navigation.
-- Audit writing currently covers company/entity lifecycle operations, but not every material financial mutation.
-- Company lifecycle code exists; dedicated automated coverage and closure warnings are absent.
-- The API contract and generated clients are aligned; deterministic regeneration was verified after removing manual entity-client overlap.
-- The frontend build succeeds with a main-chunk size warning.
-- The frontend build reports sourcemap resolution warnings for `tooltip.tsx`, `select.tsx`, and `label.tsx`; these do not fail the build but require cleanup during the product-quality pass.
-- Documentation contains stale implementation and entity-count claims.
-- Legacy database naming has been removed from active configuration and operating docs.
-- Project source, tracked filenames, generated output, and Git history contain no former hosted-builder platform branding. An unused icon library that carried unrelated vendor marks was removed from the manifest, lockfile, and installed package cache.
+- Four committed migrations now cover the full baseline, integrity constraints, monthly-close correction memo, and reconciliation uniqueness. The local database has zero pending migrations.
+- Disposable empty-database and copied-current-database migration paths converge without row loss; the fingerprint includes columns, constraints, and indexes.
+- Expense graphs, transaction updates, line/allocation replacement, posting, voiding, company lifecycle, owner contributions, settlements, reimbursement payment, reconciliation, and monthly close now use transactional services with in-transaction audit writes.
+- Posted and voided transaction mutation is blocked. Closed periods reject create/edit/post/void/allocation/reconciliation/settlement/contribution work until an audited correction-memo reopen occurs.
+- Database constraints enforce positive amounts, one-sided journal lines, lifecycle/status ranges, allocation ranges, unique close periods, unique statements, and one reconciliation match per statement line.
+- Eighteen deterministic authentication, backup, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement, and close/reopen tests pass.
+- Frontend workflow and destructive-confirmation tests are still absent.
+- Secure evidence multipart upload, retrieval, replacement, and preview are still absent; evidence backup packaging exists but cannot yet be exercised through the product upload workflow.
+- Statement and reference-data retention/deactivation policy remains incomplete.
+- Intercompany and reimbursement payment journals are balanced, linked, audited, and duplicate-safe; reversal, reimbursement waive, and contribution-conversion flows remain open.
+- Company lifecycle tests now cover create/default accounts, close, archive, reopen, personal protection, rollback, audit, and account activation state; balance/obligation warnings remain open.
+- Audit persistence covers the newly centralized material mutations, but the audit viewer and a complete mutation-coverage audit remain open.
+- OpenAPI generation is deterministic and TypeScript verification passes across libraries, API, frontend, and scripts.
+- API and frontend production builds pass. The known 630.45 kB frontend chunk and three UI sourcemap warnings remain.
+- Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
 
@@ -254,3 +252,12 @@ Verified against the repository on 2026-07-17:
 - Alignment: confirmed the next checkpoint must combine ordered migrations, centralized atomic accounting services, posted-record protection, closed-period enforcement, validation constraints, transactional audit writing, and deterministic integration fixtures.
 - Verification: six authentication/backup tests passed; all TypeScript targets passed; API and frontend production builds passed. Final whitespace, product-naming, repository-hygiene, TODO, and handoff checks are included in the checkpoint procedure.
 - Next action: begin with versioned migration generation and disposable empty/current-database migration drills, then implement the accounting service and integrity fixtures against that baseline.
+
+### 2026-07-18 - Versioned migrations and accounting-integrity checkpoint
+
+- Completed: added a committed four-step migration chain, guarded baseline adoption, migration status/application commands, disposable migration acceptance, and columns/constraints/indexes schema fingerprinting. Fixed PostgreSQL client/server major-version selection in backup and recovery tooling.
+- Completed: centralized expense, transaction, allocation, posting, voiding, company lifecycle, owner contribution, intercompany settlement, reimbursement payment, reconciliation, and monthly-close writes in atomic services with in-transaction audit events, period enforcement, idempotency, state protection, and validation.
+- Data-model hardening: added transaction/line/allocation/lifecycle/status/amount constraints, unique company-month close and account-month statement indexes, unique statement-line reconciliation, and the previously missing monthly-close correction memo column.
+- Verification: 18 tests passed; all TypeScript targets passed; API and frontend production builds passed; OpenAPI generation was deterministic; empty/copy migration acceptance preserved row counts and produced fingerprint `f9862f02354ae4723b504dc2601b986e57cf6e919498725c9cb43695bb5d31a4`; the local database reports four applied and zero pending migrations.
+- Remaining notices: frontend browser workflow tests are absent; the 630.45 kB main chunk and three UI sourcemap warnings remain.
+- Next action: implement secure evidence upload/download/preview/replacement with path/type/size validation and prove evidence survives encrypted backup and clean restore.

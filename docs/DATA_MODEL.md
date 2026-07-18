@@ -292,6 +292,7 @@ Per-entity checklist tracking close status for a calendar month.
 | `export_generated` | bool | Checklist item |
 | `closed_at` | timestamptz? | Set when status = `closed` |
 | `correction_required_after_close` | bool | True after a reopen |
+| `correction_memo` | text? | Required explanation when reopening a closed period |
 
 **Reopen rule:** Changing status from `closed` → `reopened` requires a non-empty `correction_memo` to be supplied in the PATCH body. The UI enforces this with a required text field before submitting.
 

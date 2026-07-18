@@ -772,7 +772,7 @@ export const MarkIntercompanyPaidParams = zod.object({
 })
 
 export const MarkIntercompanyPaidBody = zod.object({
-  "payment_transaction_id": zod.string().uuid().nullish(),
+  "payment_date": zod.coerce.date().optional(),
   "memo": zod.string().nullish()
 })
 
@@ -856,7 +856,7 @@ export const MarkReimbursementPaidParams = zod.object({
 })
 
 export const MarkReimbursementPaidBody = zod.object({
-  "payment_transaction_id": zod.string().uuid().nullish(),
+  "payment_date": zod.coerce.date().optional(),
   "memo": zod.string().nullish()
 })
 

@@ -16,8 +16,8 @@ export async function writeAuditLog(input: {
   previousValue?: unknown;
   newValue?: unknown;
   memo?: string;
-}) {
-  await db.insert(audit_log).values({
+}, executor: Pick<typeof db, "insert"> = db) {
+  await executor.insert(audit_log).values({
     table_name: input.tableName,
     record_id: input.recordId ?? null,
     action: input.action,

@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { entities } from "./entities";
@@ -12,7 +13,9 @@ export const tax_reserve_rules = pgTable("tax_reserve_rules", {
   notes: text("notes"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check("tax_reserve_rules_percent_range", sql`${table.reserve_percent} >= 0 and ${table.reserve_percent} <= 100`),
+]);
 
 export const insertTaxReserveRuleSchema = createInsertSchema(tax_reserve_rules).omit({ id: true, created_at: true, updated_at: true });
 export type InsertTaxReserveRule = z.infer<typeof insertTaxReserveRuleSchema>;

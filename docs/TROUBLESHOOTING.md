@@ -15,7 +15,7 @@
 | `DATABASE_URL` not set | `echo $DATABASE_URL` — should print a postgres URL | Add to local environment variables or `.env` |
 | PostgreSQL not running | `pg_isready -d $DATABASE_URL` | Start PostgreSQL service |
 | Database does not exist | `psql $DATABASE_URL -c "\l"` — look for `founders_finance` | `createdb founders_finance` |
-| Schema not pushed | `psql $DATABASE_URL -c "\dt"` — tables should exist | `pnpm --filter @workspace/db run push` |
+| Migrations not applied | `pnpm run db:migrate:status` | Create an encrypted backup, then run `pnpm run db:migrate` |
 | Port conflict | `lsof -i :$PORT` | Kill the conflicting process |
 | Syntax error in route file | Check workflow console logs for `SyntaxError` or `TypeError` | Fix the TypeScript error, restart |
 
@@ -42,17 +42,17 @@ If this fails:
 
 ---
 
-## Migrations Fail (Schema Push Fails)
+## Database Migration Fails
 
-**Symptoms:** `pnpm --filter @workspace/db run push` errors out.
+**Symptoms:** `pnpm run db:migrate` or `pnpm run db:migrate:status` errors out.
 
 **Likely causes:**
 
 | Error | Cause | Fix |
 |---|---|---|
-| `column already exists` | Schema has a column that conflicts with an existing DB column | Check the schema file vs actual table with `\d tablename` in psql |
-| `relation does not exist` | Table referenced in schema does not exist in DB | Re-run push; if it still fails, check for typos in table name |
-| `cannot drop column with foreign key` | Trying to remove a column that other tables reference | Drop the foreign key constraint first in psql, then push |
+| Baseline mismatch | An existing untracked database differs from the committed baseline | Stop and compare the reported columns; do not force adoption |
+| Constraint creation fails | Existing rows violate a new integrity rule | Correct the reported data in a documented transaction, then retry |
+| Migration remains pending | The migration transaction rolled back | Read the first database error, correct its cause, and rerun status/migrate |
 | Connection refused | PostgreSQL not running | Start PostgreSQL |
 
 **Safe approach for development:** If the database has no important data, drop it and recreate:
@@ -60,10 +60,10 @@ If this fails:
 ```bash
 dropdb founders_finance
 createdb founders_finance
-pnpm --filter @workspace/db run push
+pnpm run db:migrate
 ```
 
-**For production data:** Never drop — write a manual ALTER TABLE migration instead.
+**For production data:** Never drop or patch the schema manually. Restore from the pre-migration backup if needed, correct the migration in source, and rerun the disposable acceptance drill. See [Database Migrations](DATABASE_MIGRATIONS.md).
 
 ---
 

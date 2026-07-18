@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { transactions } from "./transactions";
@@ -15,7 +16,13 @@ export const expense_allocations = pgTable("expense_allocations", {
   memo: text("memo"),
   creates_intercompany_balance: boolean("creates_intercompany_balance").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check("expense_allocations_amount_positive", sql`${table.allocation_amount} > 0`),
+  check(
+    "expense_allocations_percent_range",
+    sql`${table.allocation_percent} is null or (${table.allocation_percent} >= 0 and ${table.allocation_percent} <= 100)`,
+  ),
+]);
 
 export const insertExpenseAllocationSchema = createInsertSchema(expense_allocations).omit({ id: true, created_at: true });
 export type InsertExpenseAllocation = z.infer<typeof insertExpenseAllocationSchema>;

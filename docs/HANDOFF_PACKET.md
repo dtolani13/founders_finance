@@ -1,12 +1,12 @@
 # Founders Finance Session Handoff
 
-Updated: 2026-07-17
+Updated: 2026-07-18
 
-This is the short operational handoff for the next development session. The canonical priority and acceptance list remains `docs/MASTER_TODO.md`.
+This is the operational handoff for the next development session. `docs/MASTER_TODO.md` remains the canonical priority and acceptance list.
 
 ## Product Purpose
 
-Founders Finance is a private, single-owner financial operations workspace for keeping company and personal records separated and explainable. It tracks entities, expenses, allocations, intercompany balances, contributions, reimbursements, tax reserves, evidence, statements, monthly close, exports, and encrypted backups.
+Founders Finance is a private, single-owner financial operations workspace for keeping company and personal records separated and explainable. It tracks companies, expenses, allocations, intercompany balances, contributions, reimbursements, tax reserves, evidence metadata, statements, monthly close, exports, and encrypted backups.
 
 The intended deployment is local-first with PostgreSQL. It is record-keeping software, not tax filing, payroll, invoicing, or legal advice.
 
@@ -14,158 +14,131 @@ The intended deployment is local-first with PostgreSQL. It is record-keeping sof
 
 - Branch: `main`
 - Remote: `https://github.com/dtolani13/founders_finance.git`
-- Checkpoint commit: the commit containing this handoff; confirm with `git log -1 --oneline`
-- Workspace root: `C:\AI_Projects\Founders-Finance\Founders-Finance`
-- Frontend: React 19, Vite, TypeScript, Tailwind CSS, React Query, wouter
-- API: Express, TypeScript, Zod, pino
-- Database: PostgreSQL through Drizzle ORM
-- API contract: OpenAPI with generated React Query clients and Zod schemas
+- Workspace: `C:\AI_Projects\Founders-Finance\Founders-Finance`
 - Expected local ports: web `5175`, API `8081`, PostgreSQL `55432`
+- Database migration state: four applied, zero pending
+- Migration schema fingerprint: `f9862f02354ae4723b504dc2601b986e57cf6e919498725c9cb43695bb5d31a4`
 
-Do not enter irreplaceable financial data yet. Authentication and encrypted backups are implemented, but the accounting write path still needs atomicity, immutability, period enforcement, and broad regression tests.
+Do not enter irreplaceable receipt or statement files yet. Authentication, atomic ledger writes, migrations, and encrypted backup packaging are implemented, but the product still lacks a secure evidence upload/retrieval workflow and a completed retention policy.
 
-## Completed And Verified
+## Completed This Checkpoint
 
-- Founders Finance naming, brand treatment, logo assets, and repository identity.
-- Polymathic Systems LLC seed data and UI support for creating, editing, closing, archiving, and reopening companies.
-- Professional owner setup/unlock screen and protected application entry.
-- Scrypt-hashed owner credentials, hashed sessions, 12-hour expiry, secure cookies, persistent lockout, and logout/lock behavior.
-- Auth protection on every finance API route except health and authentication endpoints.
-- Canonical OpenAPI contract and generated-client alignment for authentication, companies, lifecycle operations, and backups.
-- Persistent audit storage and audit-writing helper, with partial mutation coverage.
-- Encrypted backup and restore control center covering the database and evidence directory.
-- AES-256-GCM packages, scrypt-derived keys, payload fingerprints, automatic verification, clean-database recovery drill, guarded live restore, and pre-restore recovery points.
-- Project files, tracked filenames, generated output, and Git history are clear of former hosted-builder platform artifacts.
+- Added committed ordered Drizzle migrations under `lib/db/drizzle/`.
+- Added migration generation, status, application, guarded baseline adoption, and disposable acceptance commands.
+- Proved blank and copied-current databases converge without row loss; acceptance fingerprints columns, constraints, and indexes.
+- Added database integrity constraints for lifecycle state, statuses, positive amounts, one-sided lines, allocation percentages, close periods, statement uniqueness, and reconciliation uniqueness.
+- Added the missing monthly-close `correction_memo` field as a migration.
+- Fixed backup/recovery PostgreSQL tool selection so a PostgreSQL 16 database does not accidentally use incompatible PostgreSQL 18 dump/restore binaries.
+- Centralized transaction, expense, allocation, post, void, company lifecycle, owner contribution, settlement, reimbursement payment, reconciliation, and monthly-close mutations in transactional services.
+- Blocked posted/voided edits and closed-period mutations across the centralized write paths.
+- Added balanced linked journals for owner contributions, intercompany settlements, and reimbursement payments.
+- Added duplicate-processing protection and in-transaction audit events.
+- Added company lifecycle, rollback, reconciliation, settlement, close/reopen, and closed-period integration fixtures.
+- Updated OpenAPI and generated clients for settlement payment dates; consecutive generation is deterministic.
+- Replaced production schema-push instructions with migration procedures.
 
-Verification baseline on 2026-07-17:
+## Verification Baseline
 
-- 6 of 6 authentication and backup tests passed.
-- Library, API, frontend, and script TypeScript checks passed.
+- 18 of 18 authentication, backup, accounting, lifecycle, and period-control tests passed.
+- Shared libraries, API, frontend, and scripts pass TypeScript verification.
 - API production build passed.
 - Frontend production build passed.
-- `git diff --check` reported no whitespace errors.
-- Legacy product-name scan reported zero matches outside dependencies.
+- Empty/copy migration acceptance passed with row counts preserved.
+- The local database reports four applied migrations and zero pending.
 
 Known build notices:
 
 - Main frontend JavaScript chunk is 630.45 kB before gzip and needs route-level splitting.
 - Vite reports sourcemap-location warnings for `tooltip.tsx`, `select.tsx`, and `label.tsx`.
 
-## Start Here Tomorrow
+## Start Here Next Session
 
-Follow this order before editing:
+Follow the required session protocol before editing:
 
 1. Read `docs/MASTER_TODO.md` completely.
 2. Run `git status --short --branch` and `git log -3 --oneline`.
-3. Verify the checkpoint commit and confirm the worktree is clean.
-4. Read this handoff completely.
-5. Recheck the database schema, transaction routes, expense routes, monthly-close routes, and existing tests against the P0 list.
-6. Begin the migration and accounting-integrity work package below.
+3. Read this handoff completely.
+4. Inspect the evidence schema, evidence API route, Evidence page, backup evidence packaging, and path-handling tests.
+5. Reread the master TODO and verify that secure evidence storage remains the highest unblocked P0 item.
+6. Begin the evidence work package below.
 
-## First Work Package
+## Next Work Package: Secure Evidence Files
 
-The next checkpoint must combine migrations, accounting integrity, and deterministic tests. Do not build more surface features before this foundation is trustworthy.
+### Backend storage boundary
 
-### 1. Versioned migrations
+- Configure one evidence root outside the public web directory.
+- Add multipart upload without loading unbounded files into memory.
+- Allow only documented receipt/statement types and enforce a conservative size limit.
+- Generate server-side storage names; never trust a client path or filename.
+- Canonicalize every path and prove it remains inside the evidence root.
+- Add authenticated download/preview with safe content type and disposition headers.
+- Add atomic replacement and explicit missing-file responses.
 
-- Generate and commit an ordered baseline from the current Drizzle schema.
-- Include authentication and company lifecycle fields already present in the running database.
-- Add root commands for migration generation, application, and status.
-- Add startup guidance that uses migrations instead of `drizzle-kit push`.
-- Prove both paths: empty database to current schema, and copied current database to current schema without data loss.
+### Data and retention behavior
 
-### 2. Central accounting service
+- Keep evidence metadata and file writes consistent on failure.
+- Prevent evidence linked to posted or closed-period records from silent deletion.
+- Record upload, replacement, download-sensitive metadata changes, and retention actions in the audit trail.
+- Document hard-delete versus archive behavior.
 
-- Move multi-record expense, allocation, posting, voiding, reconciliation, reimbursement, and intercompany writes out of route handlers into service functions.
-- Wrap each operation in a Drizzle database transaction.
-- Ensure a forced mid-operation failure leaves no transaction header, lines, allocations, links, or audit fragments behind.
-- Write an audit event inside the same database transaction as each material finance mutation.
+### Frontend workflow
 
-### 3. Ledger state protection
+- Add upload, attachment status, preview/download, replace, and missing-file recovery states to the Evidence workspace.
+- Add clear progress, validation, failure, and retry behavior.
+- Add confirmation for destructive replacement/removal actions.
 
-- Reject general edits, line replacement, and allocation replacement for posted or voided transactions.
-- Require explicit correction or reversal workflows for posted history.
-- Reject mutation of closed periods unless an explicit reopen/correction process has occurred.
-- Apply the same period policy to transaction creation, editing, posting, voiding, allocation, reconciliation, reimbursement, and intercompany settlement.
+### Acceptance fixtures
 
-### 4. Financial validation
+- Reject traversal filenames, disallowed types, oversized files, and unauthenticated requests.
+- Prove a forced metadata/file failure leaves no orphan on either side.
+- Upload representative receipt and statement fixtures, create an encrypted backup, restore to a clean database/evidence root, and compare bytes and metadata.
+- Add browser workflow tests for upload, preview, replacement, and failure recovery.
 
-- Validate that accounts belong to the specified entity and are active for new entries.
-- Validate company lifecycle state before new transactions are accepted.
-- Require valid debit/credit line shape and exact balancing before posting.
-- Require allocation totals to equal the transaction total.
-- Add idempotency protections to actions that can create settlement or reimbursement transactions.
-- Add database constraints where they provide a dependable second line of defense.
+## Remaining Queue After Evidence
 
-### 5. Deterministic integration fixtures
-
-At minimum, tests must cover:
-
-- Successful manual expense creation.
-- Allocation-total rejection.
-- Balanced and unbalanced posting.
-- Posted-entry immutability.
-- Voiding and repeated-void rejection.
-- Closed-period rejection and reopen behavior.
-- Cross-company allocation and intercompany balance creation.
-- Forced rollback after a simulated failure.
-- Company close, archive, and reopen behavior.
-- Audit entry creation for every tested material mutation.
-
-## Remaining Production Queue
-
-After the first work package:
-
-1. Secure evidence upload, download, preview, replacement, path validation, type limits, and backup/restore survival.
-2. Financial-record retention policy for statements, evidence, accounts, vendors, categories, and presets.
-3. Intercompany settlement transactions with duplicate prevention and reversal history.
-4. Reimbursement waive and convert-to-contribution actions.
-5. Owner draw entry and accounting.
-6. Statement CSV import, preview, mapping, duplicate detection, and assisted matching.
-7. Complete audit viewer and mutation coverage.
-8. Transaction detail and controlled correction workflow.
-9. Reference-data management and dependency-aware deactivation.
-10. Accountant-grade exports, archived-company reports, and deterministic export fixtures.
-11. Responsive navigation, accessibility, error recovery, route splitting, packaging, and final documentation reconciliation.
+1. Financial-data retention and dependency-aware deletion/deactivation policy.
+2. Intercompany reversal and explicit settlement-account selection.
+3. Reimbursement waive and convert-to-contribution flows.
+4. Owner draw workflow.
+5. Statement CSV import, preview, duplicate detection, and assisted matching.
+6. Audit viewer and full mutation-coverage audit.
+7. Transaction detail and controlled correction/reversal workflow.
+8. Reference-data management with dependency warnings.
+9. Accountant-grade export fixtures and archived-company reports.
+10. Responsive navigation, accessibility, error recovery, route splitting, packaging, and final documentation reconciliation.
 
 ## Important Code Locations
 
-- Database client and schema: `lib/db/src/`
-- Current schema-push configuration: `lib/db/drizzle.config.ts`
-- Transaction routes: `artifacts/api-server/src/routes/transactions.ts`
-- Manual expense and allocation routes: `artifacts/api-server/src/routes/expenses.ts`
-- Monthly-close routes: `artifacts/api-server/src/routes/monthly_close.ts`
-- Statement and reconciliation routes: `artifacts/api-server/src/routes/statements.ts`
-- Company lifecycle routes: `artifacts/api-server/src/routes/entities.ts`
-- Audit helper: `artifacts/api-server/src/lib/audit.ts`
-- Existing tests: `artifacts/api-server/src/lib/auth.test.ts` and `lib/backup/src/index.test.ts`
+- Migration SQL and snapshots: `lib/db/drizzle/`
+- Migration tooling: `lib/db/src/migrations.ts`
+- Accounting services: `artifacts/api-server/src/services/`
+- Accounting integration tests: `artifacts/api-server/src/services/accounting.test.ts`
+- Evidence schema: `lib/db/src/schema/documents.ts`
+- Evidence route: `artifacts/api-server/src/routes/documents.ts`
+- Evidence page: `artifacts/founders-finance/src/pages/Evidence.tsx`
+- Backup engine: `lib/backup/src/index.ts`
+- Migration procedure: `docs/DATABASE_MIGRATIONS.md`
 - API contract: `lib/api-spec/openapi.yaml`
-- Frontend routes: `artifacts/founders-finance/src/App.tsx`
-- Canonical work list: `docs/MASTER_TODO.md`
 
 Generated files under `lib/api-client-react/src/generated/` and `lib/api-zod/src/generated/` must not be edited manually. Change OpenAPI first, regenerate, and verify deterministic output.
 
 ## Verification Commands
-
-Normal repository commands:
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm test
 pnpm run typecheck
 pnpm run build
+pnpm run db:migrate:status
+pnpm run db:migrate:acceptance
 ```
 
-In the Codex Windows runtime, pnpm may pause for a dependency-status reinstall prompt. When that happens, set `CI=true` for installation and run the underlying local binaries directly for verification rather than waiting on the wrapper.
-
-After schema work, also run migration acceptance against a disposable empty database and a disposable copy of the current database. Never use the live database for destructive migration experiments.
+In the Codex Windows runtime, pnpm may pause for a dependency-status reinstall prompt. Set `CI=true` for installation and use local workspace binaries for verification if the wrapper still prompts.
 
 ## End-Of-Session Definition
 
-Before stopping the next session:
-
-1. Run all relevant tests, typechecks, builds, migration drills, and repository-hygiene scans.
-2. Update `docs/MASTER_TODO.md` statuses and findings.
+1. Run relevant tests, typechecks, builds, acceptance drills, and repository-hygiene scans.
+2. Update `docs/MASTER_TODO.md` statuses and add a session-log entry.
 3. Update this handoff with the next exact starting point.
 4. Reread the TODO and perform the required final repository pass.
-5. Commit the aligned checkpoint and confirm the worktree is clean.
+5. Commit and push the aligned checkpoint; confirm the worktree is clean and synchronized.

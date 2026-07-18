@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, numeric, date } from "drizzle-orm/pg-core";
+import { pgTable, uniqueIndex, uuid, text, timestamp, numeric, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { accounts } from "./accounts";
@@ -15,7 +15,9 @@ export const statements = pgTable("statements", {
   status: text("status").default("uploaded").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("statements_account_month_unique").on(table.account_id, table.statement_month),
+]);
 
 export const statement_lines = pgTable("statement_lines", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -38,7 +40,9 @@ export const reconciliation_matches = pgTable("reconciliation_matches", {
   confidence: numeric("confidence", { precision: 5, scale: 2 }),
   approved_by_user: text("approved_by_user").default("false"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("reconciliation_statement_line_unique").on(table.statement_line_id),
+]);
 
 export const insertStatementSchema = createInsertSchema(statements).omit({ id: true, created_at: true, updated_at: true });
 export type InsertStatement = z.infer<typeof insertStatementSchema>;

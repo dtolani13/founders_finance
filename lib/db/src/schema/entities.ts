@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -21,7 +22,10 @@ export const entities = pgTable("entities", {
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check("entities_lifecycle_status_check", sql`${table.lifecycle_status} in ('active', 'closed', 'archived')`),
+  check("entities_lifecycle_active_check", sql`(${table.lifecycle_status} = 'active') = ${table.is_active}`),
+]);
 
 export const insertEntitySchema = createInsertSchema(entities).omit({ id: true, created_at: true, updated_at: true });
 export type InsertEntity = z.infer<typeof insertEntitySchema>;

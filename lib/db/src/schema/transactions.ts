@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp, numeric, date } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgTable, uuid, text, boolean, timestamp, numeric, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { vendors } from "./vendors";
@@ -16,7 +17,10 @@ export const transactions = pgTable("transactions", {
   is_balanced: boolean("is_balanced").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check("transactions_total_amount_positive", sql`${table.total_amount} > 0`),
+  check("transactions_status_check", sql`${table.status} in ('draft', 'needs_review', 'posted', 'voided')`),
+]);
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, created_at: true, updated_at: true });
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;

@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { statements, statement_lines, accounts, reconciliation_matches, transactions, vendors } from "@workspace/db";
+import { statements, statement_lines, accounts, transactions, vendors } from "@workspace/db";
 import { eq, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { FinancialOperationError, matchStatementLine } from "../services/financial-operations";
 
 const router = Router();
 
@@ -139,8 +140,17 @@ router.put("/:id", async (req, res) => {
     if (body.status !== undefined) update.status = body.status;
     if (body.notes !== undefined) update.notes = body.notes;
 
-    const lineRows = await db.update(statement_lines).set(update).where(eq(statement_lines.id, id)).returning();
-    if (lineRows.length) return res.json(lineRows[0]);
+    const existingLineRows = await db.select().from(statement_lines).where(eq(statement_lines.id, id));
+    if (existingLineRows.length) {
+      if (body.status === "matched") {
+        return res.status(400).json({ error: "Use the reconciliation action to match a statement line." });
+      }
+      if (existingLineRows[0].status === "matched" && body.status !== undefined) {
+        return res.status(409).json({ error: "Matched lines require an explicit unmatch workflow." });
+      }
+      const [line] = await db.update(statement_lines).set(update).where(eq(statement_lines.id, id)).returning();
+      return res.json(line);
+    }
 
     const stmtRows = await db.update(statements).set({ ...update, updated_at: new Date() }).where(eq(statements.id, id)).returning();
     if (!stmtRows.length) return res.status(404).json({ error: "Not found" });
@@ -239,30 +249,17 @@ router.post("/:id/match", async (req, res) => {
     const { id } = req.params;
     if (!uuidRe.test(id)) return res.status(404).json({ error: "Statement line not found" });
     const body = matchLineSchema.parse(req.body);
-    const rows = await db.update(statement_lines)
-      .set({ matched_transaction_id: body.transaction_id, status: "matched" })
-      .where(eq(statement_lines.id, id))
-      .returning();
-    if (!rows.length) return res.status(404).json({ error: "Statement line not found" });
-
-    await db.insert(reconciliation_matches).values({
-      statement_line_id: id,
-      transaction_id: body.transaction_id,
-      match_type: body.match_type,
-      approved_by_user: "true",
-    });
-
-    const txRows = await db.select().from(transactions).where(eq(transactions.id, body.transaction_id));
-    const tx = txRows[0];
+    const { line, transaction: tx } = await matchStatementLine(id, body);
     let txDescription = tx?.description ?? null;
     if (tx?.vendor_id) {
       const vs = await db.select().from(vendors).where(eq(vendors.id, tx.vendor_id));
       if (vs.length) txDescription = vs[0].name;
     }
 
-    res.json({ ...rows[0], matched_transaction_description: txDescription });
+    res.json({ ...line, matched_transaction_description: txDescription });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof FinancialOperationError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to match statement line");
     res.status(500).json({ error: "Internal server error" });
   }
