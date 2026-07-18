@@ -79,8 +79,8 @@ If you cannot answer all four, the record is incomplete.
 **Purpose:** Software development, AI/ML research, and technical product work.
 
 **Belongs here:**
-- Cloud compute and API costs (AWS, OpenAI, Anthropic, developer tools)
-- Developer tools and SaaS (GitHub, 1Password, team developer tools)
+- Cloud compute and API costs (AWS, OpenAI, Anthropic)
+- Development software and SaaS (GitHub, 1Password, cloud IDE)
 - Technical research and experimentation expenses
 
 **Example transactions:**

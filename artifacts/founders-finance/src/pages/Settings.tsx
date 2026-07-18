@@ -6,8 +6,7 @@ import {
   getListEntitiesQueryKey,
   useUpdateEntity,
   useCreateEntity,
-  useListAllEntities,
-  getListAllEntitiesQueryKey,
+  useListEntities,
   useCloseEntity,
   useArchiveEntity,
   useReopenEntity,
@@ -63,27 +62,31 @@ function AddCompanyForm() {
   });
 
   const create = useCreateEntity({
-    onSuccess: (entity) => {
-      queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
-      toast({ title: "Company added", description: `${entity.display_name} is ready with checking and tax reserve accounts.` });
-      form.reset({
-        legal_name: "",
-        display_name: "",
-        short_code: "",
-        entity_type: "LLC",
-        purpose: "",
-        tax_classification_note: "",
-      });
+    mutation: {
+      onSuccess: (entity) => {
+        queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
+        toast({ title: "Company added", description: `${entity.display_name} is ready with checking and tax reserve accounts.` });
+        form.reset({
+          legal_name: "",
+          display_name: "",
+          short_code: "",
+          entity_type: "LLC",
+          purpose: "",
+          tax_classification_note: "",
+        });
+      },
+      onError: () => toast({ title: "Failed to add company", variant: "destructive" }),
     },
-    onError: () => toast({ title: "Failed to add company", variant: "destructive" }),
   });
 
   function onSubmit(values: CreateFormValues) {
     create.mutate({
-      ...values,
-      primary_color: "#00AEEF",
-      secondary_color: "#0B1726",
-      accent_color: "#7DD3FC",
+      data: {
+        ...values,
+        primary_color: "#00AEEF",
+        secondary_color: "#0B1726",
+        accent_color: "#7DD3FC",
+      },
     });
   }
 
@@ -170,7 +173,6 @@ function EntityForm({ entity }: { entity: Entity }) {
 
   const refreshEntities = () => {
     queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListAllEntitiesQueryKey() });
   };
 
   const form = useForm<FormValues>({
@@ -202,8 +204,7 @@ function EntityForm({ entity }: { entity: Entity }) {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListAllEntitiesQueryKey() });
-        toast({ title: "Entity updated", description: `${entity.display_name} settings saved.` });
+            toast({ title: "Entity updated", description: `${entity.display_name} settings saved.` });
       },
       onError: () => toast({ title: "Failed to update entity", variant: "destructive" }),
     }
@@ -214,27 +215,33 @@ function EntityForm({ entity }: { entity: Entity }) {
   }
 
   const closeEntity = useCloseEntity({
-    onSuccess: (updated) => {
-      refreshEntities();
-      toast({ title: "Company closed", description: `${updated.display_name} is inactive but its records are preserved.` });
+    mutation: {
+      onSuccess: (updated) => {
+        refreshEntities();
+        toast({ title: "Company closed", description: `${updated.display_name} is inactive but its records are preserved.` });
+      },
+      onError: () => toast({ title: "Failed to close company", variant: "destructive" }),
     },
-    onError: () => toast({ title: "Failed to close company", variant: "destructive" }),
   });
 
   const archiveEntity = useArchiveEntity({
-    onSuccess: (updated) => {
-      refreshEntities();
-      toast({ title: "Company archived", description: `${updated.display_name} is archived for recordkeeping.` });
+    mutation: {
+      onSuccess: (updated) => {
+        refreshEntities();
+        toast({ title: "Company archived", description: `${updated.display_name} is archived for recordkeeping.` });
+      },
+      onError: () => toast({ title: "Failed to archive company", variant: "destructive" }),
     },
-    onError: () => toast({ title: "Failed to archive company", variant: "destructive" }),
   });
 
   const reopenEntity = useReopenEntity({
-    onSuccess: (updated) => {
-      refreshEntities();
-      toast({ title: "Company reopened", description: `${updated.display_name} is active again.` });
+    mutation: {
+      onSuccess: (updated) => {
+        refreshEntities();
+        toast({ title: "Company reopened", description: `${updated.display_name} is active again.` });
+      },
+      onError: () => toast({ title: "Failed to reopen company", variant: "destructive" }),
     },
-    onError: () => toast({ title: "Failed to reopen company", variant: "destructive" }),
   });
 
   function lifecyclePayload() {
@@ -409,7 +416,7 @@ function EntityForm({ entity }: { entity: Entity }) {
 }
 
 export default function Settings() {
-  const { data: entities, isLoading, error } = useListAllEntities();
+  const { data: entities, isLoading, error } = useListEntities({ include_inactive: true });
   const activeEntities = entities?.filter(entity => entity.lifecycle_status === "active" && entity.is_active) ?? [];
   const inactiveEntities = entities?.filter(entity => !(entity.lifecycle_status === "active" && entity.is_active)) ?? [];
 

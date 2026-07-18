@@ -64,7 +64,7 @@ export default function MonthlyClose() {
     query: { queryKey: getListMonthlyClosePeriodsQueryKey(params) }
   });
 
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
 
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),

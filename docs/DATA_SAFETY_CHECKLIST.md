@@ -20,8 +20,8 @@ Use this checklist each month before closing a period, and whenever making chang
 ### At close
 
 - [ ] Monthly close period status set to "closed"
-- [ ] `pg_dump` backup taken (see `docs/BACKUP_AND_RESTORE.md`)
-- [ ] Evidence archive taken if new files were added
+- [ ] Encrypted backup created and verified in **Backup & Restore**
+- [ ] Encrypted package copied to a separate local or cloud location
 
 ### Post-close corrections
 
@@ -66,18 +66,21 @@ If you need to edit a closed period, a **correction memo is required**. The API 
 - [ ] `SESSION_SECRET` is at least 64 random hex characters
 - [ ] `DATABASE_URL` is not exposed in logs or error messages
 - [ ] Evidence directory is not publicly accessible via HTTP
-- [ ] Database backups are encrypted at rest (your database/storage provider should provide this)
+- [ ] Latest backup shows **Verified** in the Backup & Restore control center
+- [ ] Backup passphrase is stored separately in a password manager
+- [ ] A clean-database recovery drill has passed this quarter
 - [ ] No real financial data in screenshots shared publicly
 
 ---
 
 ## Access Control
 
-This app has no multi-user authentication. It is intended for single-founder use on a private local deployment. If you share access:
+This app uses single-owner passphrase authentication. It is intended for one founder on a private local deployment.
 
-- Use developer tools's built-in access controls (private workspace, invited collaborators only)
-- Do not share the deployed URL publicly
-- Rotate `SESSION_SECRET` if you suspect unauthorized access
+- Do not expose the deployed URL publicly.
+- Lock the workspace when stepping away.
+- Rotate `SESSION_SECRET` and the owner passphrase if access may have been compromised.
+- Do not reuse the owner passphrase as a backup passphrase.
 
 ---
 

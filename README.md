@@ -47,7 +47,7 @@ pnpm install
 pnpm --filter @workspace/db run push
 ```
 
-## Running Locally (developer tools)
+## Running Locally
 
 Both services are managed by local dev scripts and start automatically. To restart manually:
 
@@ -60,7 +60,7 @@ Both services are managed by local dev scripts and start automatically. To resta
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `SESSION_SECRET` | Yes | Express session signing secret |
-| `PORT` | Set by developer tools | HTTP port each service binds to (unique per artifact) |
+| `PORT` | Required | HTTP port used by the API service |
 
 ## Key Commands
 
@@ -126,6 +126,6 @@ For known limitations, see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md
 
 - [Build Framework](docs/BUILD_FRAMEWORK.md) — architectural decisions, layers, and conventions
 - [Data Model](docs/DATA_MODEL.md) — all database tables and their purpose
-- [Backup and Restore](docs/BACKUP_AND_RESTORE.md) — pg_dump, evidence backups, restore procedures
+- [Backup and Restore](docs/BACKUP_AND_RESTORE.md) — encrypted recovery packages, verification drills, and guarded restore
 - [Data Safety Checklist](docs/DATA_SAFETY_CHECKLIST.md) — monthly close checklist, integrity rules
 - [Known Limitations](docs/KNOWN_LIMITATIONS.md) — accepted trade-offs and missing features

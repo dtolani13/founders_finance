@@ -94,19 +94,7 @@ These are features that exist but have gaps. Complete them before adding anythin
 
 ### Phase 4 — Backup Tooling
 
-**4a. Add a backup script**
-
-Create `scripts/src/backup.ts` that:
-- Runs `pg_dump` and timestamps the output
-- Creates a tar of the `evidence/` directory
-- Copies exports to a backup archive
-- Prints a summary of what was backed up
-
-Wire it to `pnpm run backup` in the root `package.json`.
-
-**4b. Add a restore verification script**
-
-A script that connects to the database and prints record counts per table — confirms a restore worked without running the full app.
+**Completed.** The shared backup engine, CLI, and in-app control center create AES-256-GCM encrypted database-plus-evidence packages, verify file fingerprints, run isolated clean-database recovery drills, and require a pre-restore backup plus exact confirmation for live recovery.
 
 ---
 

@@ -11,11 +11,13 @@
     "dev:web": "pnpm --filter @workspace/founders-finance run dev",
     "backup": "pnpm --filter @workspace/scripts run backup",
     "backup:verify": "pnpm --filter @workspace/scripts run backup:verify",
-    "verify-restore": "pnpm --filter @workspace/scripts run verify-restore"
+    "verify-restore": "pnpm --filter @workspace/scripts run verify-restore",
+    "test": "tsx --test artifacts/api-server/src/lib/auth.test.ts lib/backup/src/index.test.ts"
   },
   "private": true,
   "devDependencies": {
     "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "tsx": "catalog:"
   }
 }

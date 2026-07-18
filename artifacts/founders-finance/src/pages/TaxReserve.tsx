@@ -45,7 +45,7 @@ export default function TaxReserve() {
     query: { queryKey: getGetTaxReserveSummaryQueryKey() }
   });
 
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
 
   const createRule = useCreateTaxReserveRule({
     mutation: {

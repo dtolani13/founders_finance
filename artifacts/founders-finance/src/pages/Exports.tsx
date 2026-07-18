@@ -134,7 +134,7 @@ export default function Exports() {
   const [periodMonth, setPeriodMonth] = useState<string>("");
   const [runExport, setRunExport] = useState(false);
 
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
 
   const selectedMeta = EXPORT_TYPES.find(t => t.value === selectedType);
 

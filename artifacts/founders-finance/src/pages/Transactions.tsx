@@ -73,7 +73,7 @@ export default function Transactions() {
     query: { queryKey: getListTransactionsQueryKey(params) }
   });
 
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
 
   const hasFilters = entityId || txType || status || dateFrom || dateTo;
 

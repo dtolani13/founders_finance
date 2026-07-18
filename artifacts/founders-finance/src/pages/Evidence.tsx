@@ -62,7 +62,7 @@ export default function Evidence() {
     query: { queryKey: getListDocumentsQueryKey(params) }
   });
 
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
   const { data: transactions } = useListTransactions({}, { query: { queryKey: getListTransactionsQueryKey({}) } });
 
   const form = useForm<FormValues>({

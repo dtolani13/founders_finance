@@ -15,6 +15,8 @@ import {
   Settings,
   Banknote,
   ShieldCheck,
+  LogOut,
+  DatabaseBackup,
 } from "lucide-react";
 
 const navItems = [
@@ -30,6 +32,7 @@ const navItems = [
   { href: "/statements", label: "Statements", icon: FileText },
   { href: "/monthly-close", label: "Monthly Close", icon: CheckSquare },
   { href: "/exports", label: "Exports", icon: Download },
+  { href: "/backups", label: "Backup & Restore", icon: DatabaseBackup },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -102,7 +105,13 @@ function FoundersFinanceMark() {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({
+  children,
+  lockWorkspace,
+}: {
+  children: React.ReactNode;
+  lockWorkspace: () => Promise<void>;
+}) {
   const [location] = useLocation();
 
   return (
@@ -160,9 +169,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
             {location === "/" ? "/dashboard" : location}
           </div>
-          <div className="flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sky-200">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Local control workspace
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sky-200">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Secure owner session
+            </div>
+            <button
+              type="button"
+              onClick={() => void lockWorkspace()}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 text-slate-400 transition-colors hover:border-sky-400/60 hover:bg-sky-500/10 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+              aria-label="Lock Founders Finance"
+              title="Lock Founders Finance"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-6">

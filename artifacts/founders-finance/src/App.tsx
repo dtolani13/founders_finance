@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AuthGate } from "@/components/auth/AuthGate";
 import Dashboard from "@/pages/Dashboard";
 import Transactions from "@/pages/Transactions";
 import NewExpense from "@/pages/NewExpense";
@@ -16,6 +17,7 @@ import Statements from "@/pages/Statements";
 import MonthlyClose from "@/pages/MonthlyClose";
 import Exports from "@/pages/Exports";
 import Settings from "@/pages/Settings";
+import Backups from "@/pages/Backups";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -28,9 +30,9 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
+function Router({ lockWorkspace }: { lockWorkspace: () => Promise<void> }) {
   return (
-    <AppLayout>
+    <AppLayout lockWorkspace={lockWorkspace}>
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/transactions" component={Transactions} />
@@ -44,6 +46,7 @@ function Router() {
         <Route path="/statements" component={Statements} />
         <Route path="/monthly-close" component={MonthlyClose} />
         <Route path="/exports" component={Exports} />
+        <Route path="/backups" component={Backups} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
@@ -55,9 +58,20 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
-          <Router />
-        </WouterRouter>
+        <AuthGate>
+          {({ lockWorkspace }) => (
+            <WouterRouter
+              base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}
+            >
+              <Router
+                lockWorkspace={async () => {
+                  queryClient.clear();
+                  await lockWorkspace();
+                }}
+              />
+            </WouterRouter>
+          )}
+        </AuthGate>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

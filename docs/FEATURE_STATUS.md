@@ -162,7 +162,7 @@ Last reviewed: May 2026
 |---|---|---|---|---|---|
 | Entity theming (colors) | complete | `schema/entities.ts`, `pages/Dashboard.tsx`, `pages/MonthlyClose.tsx` | `primary_color` hex on entity drives card styling. | Low | None |
 | Security / data safety | complete | Multiple routes | Soft-delete, 409 guards, UUID validation, Zod validation, file path sanitization. | Low | None |
-| Audit log (DB table) | not started | — | No persistent audit log table. Server logs only (ephemeral). | Medium | Add `audit_log` table with insert trigger or middleware |
-| Backup / restore docs | complete | `docs/BACKUP_AND_RESTORE.md` | Manual `pg_dump` + evidence directory instructions. | Low | Add automated backup script |
-| Automated tests | not started | — | No test suite. Typecheck and manual testing only. | High | Add integration tests for expense + allocation flow |
+| Audit log (DB table) | partial | `schema/audit_log.ts`, `lib/audit.ts` | Persistent log exists; coverage is not yet complete for every financial mutation. | Medium | Expand audit coverage and add viewer UI |
+| Backup / restore control center | complete | `lib/backup`, `routes/backups.ts`, `pages/Backups.tsx` | AES-256-GCM database + evidence packages, automatic verification, clean-database drill, guarded restore. | Low | Add scheduled reminders later |
+| Automated tests | partial | `auth.test.ts`, `lib/backup/src/index.test.ts` | Auth boundaries and encryption failure paths covered; broad accounting workflows remain. | High | Add integration tests for expense + allocation flow |
 | Health check endpoint | complete | `routes/health.ts` — `GET /api/healthz` | Returns `{"status":"ok"}`. | Low | None |

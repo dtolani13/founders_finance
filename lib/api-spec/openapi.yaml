@@ -9,6 +9,7 @@ servers:
     description: Base API path
 tags:
   - name: health
+  - name: auth
   - name: entities
   - name: accounts
   - name: categories
@@ -25,6 +26,10 @@ tags:
   - name: statements
   - name: monthly-close
   - name: exports
+  - name: backups
+
+security:
+  - sessionCookie: []
 
 paths:
   /healthz:
@@ -32,6 +37,7 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
+      security: []
       responses:
         "200":
           description: Healthy
@@ -39,6 +45,84 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/status:
+    get:
+      operationId: getAuthStatus
+      tags: [auth]
+      summary: Get owner-access configuration and session status
+      security: []
+      responses:
+        "200":
+          description: Current authentication status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthStatus"
+
+  /auth/setup:
+    post:
+      operationId: setupOwnerAccess
+      tags: [auth]
+      summary: Configure the single owner passphrase and start a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCredentials"
+      responses:
+        "201":
+          description: Owner access configured and authenticated
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSession"
+        "409":
+          description: Owner access is already configured
+
+  /auth/login:
+    post:
+      operationId: loginOwner
+      tags: [auth]
+      summary: Unlock Founders Finance
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCredentials"
+      responses:
+        "200":
+          description: Authenticated owner session
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSession"
+        "401":
+          description: Invalid passphrase
+        "429":
+          description: Temporarily locked after repeated failures
+
+  /auth/logout:
+    post:
+      operationId: logoutOwner
+      tags: [auth]
+      summary: End the current owner session
+      security: []
+      responses:
+        "204":
+          description: Session ended
 
   /entities:
     get:
@@ -60,6 +144,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Entity"
+    post:
+      operationId: createEntity
+      tags: [entities]
+      summary: Create an entity with default checking and tax reserve accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEntityBody"
+      responses:
+        "201":
+          description: Created entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
 
   /entities/{id}:
     get:
@@ -1099,7 +1200,131 @@ paths:
               schema:
                 $ref: "#/components/schemas/ExportResult"
 
+  /backups:
+    get:
+      operationId: getBackupOverview
+      tags: [backups]
+      summary: Get encrypted backup status and history
+      responses:
+        "200":
+          description: Backup control-center status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupOverview"
+    post:
+      operationId: createEncryptedBackup
+      tags: [backups]
+      summary: Create an encrypted database and evidence backup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBackupBody"
+      responses:
+        "201":
+          description: Encrypted backup created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupMetadata"
+        "409":
+          description: Another backup operation is running
+
+  /backups/{id}/verify:
+    post:
+      operationId: verifyEncryptedBackup
+      tags: [backups]
+      summary: Decrypt and verify every backup payload fingerprint
+      parameters:
+        - $ref: "#/components/parameters/BackupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupPassphraseBody"
+      responses:
+        "200":
+          description: Backup integrity verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupVerificationResult"
+
+  /backups/{id}/recovery-drill:
+    post:
+      operationId: runBackupRecoveryDrill
+      tags: [backups]
+      summary: Restore a backup into an isolated database and compare row counts
+      parameters:
+        - $ref: "#/components/parameters/BackupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupPassphraseBody"
+      responses:
+        "200":
+          description: Recovery drill completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryDrillResult"
+
+  /backups/{id}/restore:
+    post:
+      operationId: restoreEncryptedBackup
+      tags: [backups]
+      summary: Create a pre-restore backup and restore the selected package
+      parameters:
+        - $ref: "#/components/parameters/BackupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreBackupBody"
+      responses:
+        "200":
+          description: Backup restored and post-restore row counts matched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreBackupResult"
+
+  /backups/{id}/download:
+    get:
+      operationId: downloadEncryptedBackup
+      tags: [backups]
+      summary: Download an encrypted backup package
+      parameters:
+        - $ref: "#/components/parameters/BackupId"
+      responses:
+        "200":
+          description: Encrypted Founders Finance backup
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: ff_session
+  parameters:
+    BackupId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Backup identifier
   schemas:
     HealthStatus:
       type: object
@@ -1108,6 +1333,45 @@ components:
           type: string
       required:
         - status
+
+    AuthStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        authenticated:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - configured
+        - authenticated
+        - expires_at
+
+    AuthCredentials:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+      required:
+        - password
+
+    AuthenticatedSession:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - authenticated
+        - expires_at
 
     Entity:
       type: object
@@ -1184,6 +1448,42 @@ components:
         archive_reason:
           type: string
           nullable: true
+
+    CreateEntityBody:
+      type: object
+      properties:
+        legal_name:
+          type: string
+          minLength: 1
+        display_name:
+          type: string
+          minLength: 1
+        short_code:
+          type: string
+          minLength: 2
+          maxLength: 12
+        entity_type:
+          type: string
+          default: LLC
+        purpose:
+          type: string
+          nullable: true
+        tax_classification_note:
+          type: string
+          nullable: true
+        primary_color:
+          type: string
+          nullable: true
+        secondary_color:
+          type: string
+          nullable: true
+        accent_color:
+          type: string
+          nullable: true
+      required:
+        - legal_name
+        - display_name
+        - short_code
 
     UpdateEntityBody:
       type: object
@@ -2088,7 +2388,7 @@ components:
           type: number
         reserve_percent:
           type: number
-        basis: 
+        basis:
           type: string
         disclaimer:
           type: string
@@ -2539,3 +2839,212 @@ components:
         - record_count
         - records
         - generated_at
+
+    BackupMetadata:
+      type: object
+      properties:
+        id:
+          type: string
+        app:
+          type: string
+          const: Founders Finance
+        file_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        bytes:
+          type: integer
+        status:
+          type: string
+          enum: [complete, failed]
+        verification_status:
+          type: string
+          enum: [not_verified, verified, failed]
+        last_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_recovery_drill_at:
+          type: string
+          format: date-time
+          nullable: true
+        recovery_drill_status:
+          type: string
+          enum: [not_verified, verified, failed]
+        includes_evidence:
+          type: boolean
+        evidence_file_count:
+          type: integer
+        database_table_count:
+          type: integer
+        destination:
+          type: string
+        error:
+          type: string
+          nullable: true
+      required:
+        - id
+        - app
+        - file_name
+        - created_at
+        - completed_at
+        - bytes
+        - status
+        - verification_status
+        - last_verified_at
+        - last_recovery_drill_at
+        - recovery_drill_status
+        - includes_evidence
+        - evidence_file_count
+        - database_table_count
+        - destination
+        - error
+
+    BackupOperation:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [create, verify, recovery_drill, restore]
+        started_at:
+          type: string
+          format: date-time
+      required:
+        - type
+        - started_at
+
+    BackupOverview:
+      type: object
+      properties:
+        storage_destination:
+          type: string
+        evidence_source:
+          type: string
+        encryption:
+          type: string
+        active_operation:
+          oneOf:
+            - $ref: "#/components/schemas/BackupOperation"
+            - type: "null"
+        latest_successful_at:
+          type: string
+          format: date-time
+          nullable: true
+        latest_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        backups:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupMetadata"
+      required:
+        - storage_destination
+        - evidence_source
+        - encryption
+        - active_operation
+        - latest_successful_at
+        - latest_verified_at
+        - backups
+
+    BackupPassphraseBody:
+      type: object
+      properties:
+        passphrase:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required:
+        - passphrase
+
+    CreateBackupBody:
+      allOf:
+        - $ref: "#/components/schemas/BackupPassphraseBody"
+        - type: object
+          properties:
+            passphrase_confirmation:
+              type: string
+              minLength: 12
+              maxLength: 128
+          required:
+            - passphrase_confirmation
+
+    RestoreBackupBody:
+      allOf:
+        - $ref: "#/components/schemas/BackupPassphraseBody"
+        - type: object
+          properties:
+            confirmation:
+              type: string
+              const: RESTORE FOUNDERS FINANCE
+          required:
+            - confirmation
+
+    BackupVerificationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          const: true
+        backup_id:
+          type: string
+        verified_at:
+          type: string
+          format: date-time
+        database_table_count:
+          type: integer
+        evidence_file_count:
+          type: integer
+        manifest:
+          type: object
+          additionalProperties: true
+      required:
+        - valid
+        - backup_id
+        - verified_at
+        - database_table_count
+        - evidence_file_count
+        - manifest
+
+    RecoveryDrillResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          const: true
+        backup_id:
+          type: string
+        verified_at:
+          type: string
+          format: date-time
+        restored_database:
+          type: string
+        table_counts_match:
+          type: boolean
+          const: true
+      required:
+        - valid
+        - backup_id
+        - verified_at
+        - restored_database
+        - table_counts_match
+
+    RestoreBackupResult:
+      type: object
+      properties:
+        restored:
+          type: boolean
+          const: true
+        backup_id:
+          type: string
+        pre_restore_backup_id:
+          type: string
+      required:
+        - restored
+        - backup_id
+        - pre_restore_backup_id

@@ -64,7 +64,7 @@ For each business expense paid by a company account this month:
 5. If shared or has a personal component: continue to Section 4
 
 **Common recurring expenses to enter:**
-- Software subscriptions (Adobe CC, GitHub, 1Password, developer tools)
+- Software subscriptions (Adobe CC, GitHub, 1Password, cloud IDE)
 - Cloud infrastructure (AWS, OpenAI API)
 - Internet and phone (if business-paid)
 - Professional services
@@ -233,7 +233,7 @@ After closing, generate monthly exports for your records:
 
 After exporting, back up the following:
 
-1. **Database:** `pg_dump $DATABASE_URL > backups/founder_ledger_2026-05.sql`
+1. **Database:** `pg_dump $DATABASE_URL > backups/founders_finance_2026-05.sql`
 2. **Evidence directory:** `tar -czf backups/evidence_2026-05.tar.gz evidence/`
 3. **Exports folder:** Copy `exports/2026-05/` to a backup location (cloud storage, external drive)
 

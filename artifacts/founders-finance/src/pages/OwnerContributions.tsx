@@ -35,7 +35,7 @@ export default function OwnerContributions() {
   const [showForm, setShowForm] = useState(false);
 
   const { data: contributions, isLoading } = useListOwnerContributions({ query: { queryKey: getListOwnerContributionsQueryKey() } });
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),

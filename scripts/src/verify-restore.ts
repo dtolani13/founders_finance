@@ -1,18 +1,19 @@
-import { spawnSync } from "node:child_process";
+import { runRecoveryDrill } from "@workspace/backup";
+import { resolve } from "node:path";
 
-const targetUrl = process.env.RESTORE_DATABASE_URL;
-const dumpPath = process.argv[2];
+const databaseUrl = process.env.DATABASE_URL;
+const backupId = process.argv[2];
+const passphrase = process.env.BACKUP_PASSPHRASE;
 
-if (!targetUrl || !dumpPath) {
-  throw new Error("Usage: RESTORE_DATABASE_URL=postgres://... pnpm run verify-restore -- <database.dump>");
+if (!databaseUrl || !backupId || !passphrase) {
+  throw new Error("Usage: DATABASE_URL=... BACKUP_PASSPHRASE=... pnpm run verify-restore -- <backup-id>");
 }
 
-const result = spawnSync("pg_restore", ["--clean", "--if-exists", "--no-owner", "--dbname", targetUrl, dumpPath], {
-  stdio: "inherit",
-});
-
-if (result.status !== 0) {
-  throw new Error("Restore verification failed.");
-}
-
-console.log("Restore verification completed.");
+const result = await runRecoveryDrill(
+  resolve(process.env.BACKUP_STORAGE_ROOT ?? process.env.BACKUP_ROOT ?? "backups"),
+  backupId,
+  passphrase,
+  databaseUrl,
+  process.env.POSTGRES_BIN,
+);
+console.log(`Recovery drill completed: ${result.backup_id}; table counts matched.`);

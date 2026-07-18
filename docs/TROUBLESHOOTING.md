@@ -14,7 +14,7 @@
 |---|---|---|
 | `DATABASE_URL` not set | `echo $DATABASE_URL` — should print a postgres URL | Add to local environment variables or `.env` |
 | PostgreSQL not running | `pg_isready -d $DATABASE_URL` | Start PostgreSQL service |
-| Database does not exist | `psql $DATABASE_URL -c "\l"` — look for `founder_ledger` | `createdb founder_ledger` |
+| Database does not exist | `psql $DATABASE_URL -c "\l"` — look for `founders_finance` | `createdb founders_finance` |
 | Schema not pushed | `psql $DATABASE_URL -c "\dt"` — tables should exist | `pnpm --filter @workspace/db run push` |
 | Port conflict | `lsof -i :$PORT` | Kill the conflicting process |
 | Syntax error in route file | Check workflow console logs for `SyntaxError` or `TypeError` | Fix the TypeScript error, restart |
@@ -58,8 +58,8 @@ If this fails:
 **Safe approach for development:** If the database has no important data, drop it and recreate:
 
 ```bash
-dropdb founder_ledger
-createdb founder_ledger
+dropdb founders_finance
+createdb founders_finance
 pnpm --filter @workspace/db run push
 ```
 

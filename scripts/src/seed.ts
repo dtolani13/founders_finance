@@ -121,7 +121,7 @@ async function seed() {
     { name: "OpenAI", default_category_id: catMap["Software & Subscriptions"] },
     { name: "Notion", default_category_id: catMap["Software & Subscriptions"] },
     { name: "Adobe Creative Cloud", default_category_id: catMap["Software & Subscriptions"] },
-    { name: "developer tools", default_category_id: catMap["Software & Subscriptions"] },
+    { name: "Cloud IDE", default_category_id: catMap["Software & Subscriptions"] },
     { name: "1Password", default_category_id: catMap["Software & Subscriptions"] },
     { name: "Anthropic", default_category_id: catMap["Software & Subscriptions"] },
   ]).returning();
@@ -169,7 +169,7 @@ async function seed() {
     { transaction_date: daysAgo(12), transaction_type: "business_expense", description: "Figma Professional", vendor_id: vendorMap["Figma"], total_amount: "45.00", status: "posted", is_balanced: true, business_purpose: "UI design - both entities" },
     { transaction_date: daysAgo(15), transaction_type: "owner_contribution", description: "Initial capital contribution to SM", total_amount: "10000.00", status: "posted", is_balanced: true },
     { transaction_date: daysAgo(15), transaction_type: "owner_contribution", description: "Initial capital contribution to RCL", total_amount: "5000.00", status: "posted", is_balanced: true },
-    { transaction_date: daysAgo(3), transaction_type: "business_expense", description: "Developer tools subscription", vendor_id: vendorMap["developer tools"], total_amount: "20.00", status: "draft", is_balanced: false, business_purpose: "Development environment" },
+    { transaction_date: daysAgo(3), transaction_type: "business_expense", description: "Cloud IDE subscription", vendor_id: vendorMap["Cloud IDE"], total_amount: "20.00", status: "draft", is_balanced: false, business_purpose: "Development environment" },
     { transaction_date: daysAgo(1), transaction_type: "business_expense", description: "1Password Teams", vendor_id: vendorMap["1Password"], total_amount: "19.95", status: "needs_review", is_balanced: false, business_purpose: "Password manager - all entities" },
     { transaction_date: daysAgo(20), transaction_type: "business_expense", description: "Anthropic Claude API", vendor_id: vendorMap["Anthropic"], total_amount: "78.30", status: "posted", is_balanced: true, business_purpose: "RCL AI product features" },
   ]).returning();

@@ -6,23 +6,23 @@ This document describes intentional design constraints, missing features, and ar
 
 ## Authentication & Access Control
 
-**No multi-user auth.** The app uses a single Express session with `SESSION_SECRET`. There is no login screen, role-based access, or per-user data isolation.
+**No multi-user auth.** The app has a protected single-owner setup and unlock screen with persistent sessions and brute-force lockout. It does not provide roles or per-user data isolation.
 
-**Mitigation:** Keep the developer tools repl private. Do not share the deployed URL. This is by design for a single-user ledger.
+**Mitigation:** Keep the deployment private and do not share the deployed URL. This is by design for a single-owner ledger.
 
 ---
 
-## No Automated Testing
+## Limited Automated Testing
 
-There are no automated unit or integration tests. All verification is manual or via typecheck (`pnpm run typecheck`).
+Authentication boundaries and encrypted-backup behavior have automated tests. Broad accounting, company-lifecycle, and frontend workflow coverage is still missing.
 
 **Risk:** Regressions may go undetected. Run the typecheck before every deploy.
 
 ---
 
-## No Audit Log Table
+## Incomplete Audit Coverage
 
-Corrections and voids are logged to the API server console (pino logger) but there is no persistent `audit_log` database table. Server logs are ephemeral in developer tools's free tier.
+The app has a persistent `audit_log` table and writes company-lifecycle, authentication-security, export, and backup operations. Not every material financial mutation is covered yet.
 
 **Mitigation:** Use the monthly close `correction_memo` field to document changes. Export snapshots before making corrections.
 
@@ -32,7 +32,7 @@ Corrections and voids are logged to the API server console (pino logger) but the
 
 `file_path` in the `documents` table is a string metadata field — the app does not upload, store, or serve files. You are responsible for placing evidence files in the `evidence/` directory and ensuring `file_path` values match.
 
-**Mitigation:** See `docs/BACKUP_AND_RESTORE.md` for evidence directory backup instructions.
+**Mitigation:** Evidence under `EVIDENCE_STORAGE_ROOT` is included in encrypted backups. Secure in-app upload and retrieval remain P0 work.
 
 ---
 

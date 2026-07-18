@@ -8,10 +8,12 @@
     "seed": "tsx ./src/seed.ts",
     "backup": "tsx ./src/backup.ts",
     "backup:verify": "tsx ./src/verify-backup.ts",
+    "backup:acceptance": "tsx ./src/backup-acceptance.ts",
     "verify-restore": "tsx ./src/verify-restore.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@workspace/backup": "workspace:*",
     "@workspace/db": "workspace:*"
   },
   "devDependencies": {

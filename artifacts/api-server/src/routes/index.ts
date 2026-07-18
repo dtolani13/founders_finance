@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth-default";
+import { requireAuth } from "../middlewares/require-auth";
 import entitiesRouter from "./entities";
 import accountsRouter from "./accounts";
 import categoriesRouter from "./categories";
@@ -17,10 +19,13 @@ import statementsRouter from "./statements";
 import monthlyCloseRouter from "./monthly_close";
 import exportsRouter from "./exports";
 import auditRouter from "./audit";
+import backupsRouter from "./backups";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/auth", authRouter);
+router.use(requireAuth);
 router.use("/entities", entitiesRouter);
 router.use("/accounts", accountsRouter);
 router.use("/categories", categoriesRouter);
@@ -39,5 +44,6 @@ router.use("/statement-lines", statementsRouter);
 router.use("/monthly-close", monthlyCloseRouter);
 router.use("/exports", exportsRouter);
 router.use("/audit", auditRouter);
+router.use("/backups", backupsRouter);
 
 export default router;

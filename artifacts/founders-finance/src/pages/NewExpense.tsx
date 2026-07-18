@@ -57,7 +57,7 @@ export default function NewExpense() {
   const [allocations, setAllocations] = useState<ManualAllocation[]>([{ target_entity_id: "", allocation_amount: 0, allocation_percent: null, creates_intercompany_balance: false, category_id: null, memo: null }]);
   const [allocError, setAllocError] = useState<string | null>(null);
 
-  const { data: entities } = useListEntities({ query: { queryKey: getListEntitiesQueryKey() } });
+  const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
   const { data: categories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
   const { data: vendors } = useListVendors({ query: { queryKey: getListVendorsQueryKey() } });
   const { data: presets } = useListAllocationPresets({ query: { queryKey: getListAllocationPresetsQueryKey() } });

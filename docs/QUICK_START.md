@@ -26,7 +26,7 @@ Edit `.env`:
 
 ```env
 # PostgreSQL connection string
-DATABASE_URL=postgresql://username:password@localhost:5432/founder_ledger
+DATABASE_URL=postgresql://username:password@localhost:5432/founders_finance
 
 # Express session secret — generate a random string, keep it private
 SESSION_SECRET=your-random-secret-here-minimum-32-characters
@@ -46,13 +46,13 @@ PORT=3001
 ### Create the database (local only — skip For local dev)
 
 ```bash
-createdb founder_ledger
+createdb founders_finance
 ```
 
 Or using psql:
 
 ```sql
-CREATE DATABASE founder_ledger;
+CREATE DATABASE founders_finance;
 ```
 
 ### Push the schema
@@ -142,7 +142,7 @@ Output is in `artifacts/founders-finance/dist/`. The API server handles producti
 
 ## For local dev — Workflows
 
-Both services are managed by local dev scripts. They start automatically when the developer tools is opened.
+Both services are managed by the local development scripts described above.
 
 To restart manually:
 
@@ -167,7 +167,7 @@ pnpm --filter @workspace/api-server run dev 2>&1 | head -30
 Common causes:
 - `DATABASE_URL` not set → set it in `.env` or local environment variables
 - PostgreSQL not running → start postgres service
-- Database does not exist → run `createdb founder_ledger`
+- Database does not exist → run `createdb founders_finance`
 - Schema not pushed → run `pnpm --filter @workspace/db run push`
 
 ### Frontend cannot reach the API

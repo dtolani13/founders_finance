@@ -1,42 +1,22 @@
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { createBackup, verifyBackup } from "@workspace/backup";
+import { resolve } from "node:path";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required to create a backup.");
 }
 
-const backupRoot = resolve(process.env.BACKUP_ROOT ?? "backups");
-const evidenceRoot = process.env.EVIDENCE_STORAGE_ROOT;
-const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-const backupDir = join(backupRoot, `founders-finance-backup-${timestamp}`);
+const passphrase = process.env.BACKUP_PASSPHRASE;
+if (!passphrase) throw new Error("BACKUP_PASSPHRASE is required to encrypt a backup.");
 
-mkdirSync(backupDir, { recursive: true });
-
-const dumpPath = join(backupDir, "database.dump");
-const pgDump = spawnSync("pg_dump", ["--format=custom", "--file", dumpPath, databaseUrl], {
-  stdio: "inherit",
+const backupRoot = resolve(process.env.BACKUP_STORAGE_ROOT ?? process.env.BACKUP_ROOT ?? "backups");
+const metadata = await createBackup({
+  databaseUrl,
+  backupRoot,
+  evidenceRoot: resolve(process.env.EVIDENCE_STORAGE_ROOT ?? "evidence"),
+  passphrase,
+  postgresBin: process.env.POSTGRES_BIN,
 });
+await verifyBackup(backupRoot, metadata.id, passphrase, process.env.POSTGRES_BIN);
 
-if (pgDump.status !== 0) {
-  throw new Error("pg_dump failed. Confirm PostgreSQL client tools are installed and DATABASE_URL is valid.");
-}
-
-const manifest = {
-  app: "Founders Finance",
-  created_at: new Date().toISOString(),
-  database_dump: "database.dump",
-  evidence_root: evidenceRoot ?? null,
-  includes_evidence: Boolean(evidenceRoot && existsSync(evidenceRoot)),
-};
-
-writeFileSync(join(backupDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-
-if (process.env.BACKUP_COPY_TO) {
-  mkdirSync(process.env.BACKUP_COPY_TO, { recursive: true });
-  copyFileSync(dumpPath, join(process.env.BACKUP_COPY_TO, `founders-finance-${timestamp}.dump`));
-  copyFileSync(join(backupDir, "manifest.json"), join(process.env.BACKUP_COPY_TO, `founders-finance-${timestamp}.manifest.json`));
-}
-
-console.log(`Backup complete: ${backupDir}`);
+console.log(`Encrypted and verified backup complete: ${metadata.file_name}`);
