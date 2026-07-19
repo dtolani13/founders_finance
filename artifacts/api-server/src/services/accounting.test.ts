@@ -305,6 +305,8 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(defaultAccounts.length, 2);
       assert.equal(defaultAccounts.every((account) => account.is_active), true);
       assert.equal(defaultAccounts.some((account) => account.is_tax_reserve), true);
+      const intentionallyInactiveAccountId = defaultAccounts[1].id;
+      await db.update(accounts).set({ is_active: false }).where(eq(accounts.id, intentionallyInactiveAccountId));
       await db.update(accounts).set({ current_balance: "125.00" }).where(eq(accounts.id, defaultAccounts[0].id));
       const closureAssessment = await lifecycle.assessCompanyClosure(created.id);
       assert.equal(closureAssessment.nonzero_accounts.length, 1);
@@ -328,7 +330,8 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(reopened.is_active, true);
       assert.equal(reopened.closed_at, null);
       const reopenedAccounts = await db.select().from(accounts).where(eq(accounts.entity_id, created.id));
-      assert.equal(reopenedAccounts.every((account) => account.is_active), true);
+      assert.equal(reopenedAccounts.find((account) => account.id === intentionallyInactiveAccountId)?.is_active, false);
+      assert.equal(reopenedAccounts.filter((account) => account.id !== intentionallyInactiveAccountId).every((account) => account.is_active), true);
 
       const lifecycleAudits = await db.select().from(audit_log).where(eq(audit_log.record_id, created.id));
       assert.deepEqual(
@@ -590,6 +593,8 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
         match_type: "manual",
       });
       assert.equal(matched.line.status, "matched");
+      const [reconciledStatement] = await db.select().from(statements).where(eq(statements.id, statement.id));
+      assert.equal(reconciledStatement.status, "reconciled");
       const matches = await db.select().from(reconciliation_matches)
         .where(eq(reconciliation_matches.statement_line_id, line.id));
       assert.equal(matches.length, 1);
@@ -601,7 +606,7 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
 
       const archived = await operations.archiveStatement(statement.id);
       assert.ok(archived.archived_at);
-      assert.equal(archived.status, "reconciling");
+      assert.equal(archived.status, "reconciled");
       assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statement.id))).length, 1);
       assert.equal((await db.select().from(reconciliation_matches).where(eq(reconciliation_matches.statement_line_id, line.id))).length, 1);
       assert.equal(

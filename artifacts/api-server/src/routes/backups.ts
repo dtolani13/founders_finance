@@ -35,6 +35,20 @@ const restoreSchema = passphraseSchema.extend({
 type Operation = "create" | "verify" | "recovery_drill" | "restore";
 let activeOperation: { type: Operation; started_at: string } | null = null;
 
+async function writeBackupAudit(
+  backupId: string,
+  action: string,
+  memo: string,
+  details: Record<string, unknown> = {},
+) {
+  await writeAuditLog({
+    tableName: "backup_operations",
+    action,
+    newValue: { backup_id: backupId, ...details },
+    memo,
+  });
+}
+
 async function exclusive<T>(type: Operation, task: () => Promise<T>): Promise<T> {
   if (activeOperation) throw new Error(`A ${activeOperation.type.replace("_", " ")} operation is already running.`);
   activeOperation = { type, started_at: new Date().toISOString() };
@@ -88,12 +102,10 @@ router.post("/", async (req, res) => {
       await verifyBackup(backupRoot, created.id, body.passphrase, postgresBin);
       return (await findBackup(backupRoot, created.id)).metadata;
     });
-    await writeAuditLog({
-      tableName: "backup_operations",
-      recordId: metadata.id,
-      action: "backup_create",
-      newValue: { file_name: metadata.file_name, bytes: metadata.bytes, includes_evidence: metadata.includes_evidence },
-      memo: "Encrypted backup created and integrity verified",
+    await writeBackupAudit(metadata.id, "backup_create", "Encrypted backup created and integrity verified", {
+      file_name: metadata.file_name,
+      bytes: metadata.bytes,
+      includes_evidence: metadata.includes_evidence,
     });
     res.status(201).json(metadata);
   } catch (error) {
@@ -105,7 +117,7 @@ router.post("/:id/verify", async (req, res) => {
   try {
     const body = passphraseSchema.parse(req.body);
     const result = await exclusive("verify", () => verifyBackup(backupRoot, req.params.id, body.passphrase, postgresBin));
-    await writeAuditLog({ tableName: "backup_operations", recordId: req.params.id, action: "backup_verify", memo: "Encrypted backup integrity verified" });
+    await writeBackupAudit(req.params.id, "backup_verify", "Encrypted backup integrity verified");
     res.json(result);
   } catch (error) {
     respondError(req, res, error);
@@ -122,7 +134,7 @@ router.post("/:id/recovery-drill", async (req, res) => {
       databaseUrl,
       postgresBin,
     ));
-    await writeAuditLog({ tableName: "backup_operations", recordId: req.params.id, action: "recovery_drill", memo: "Backup restored into an isolated database and row counts matched" });
+    await writeBackupAudit(req.params.id, "recovery_drill", "Backup restored into an isolated database and row counts matched");
     res.json(result);
   } catch (error) {
     respondError(req, res, error);
@@ -139,12 +151,8 @@ router.post("/:id/restore", async (req, res) => {
       passphrase: body.passphrase,
       postgresBin,
     }, req.params.id));
-    await writeAuditLog({
-      tableName: "backup_operations",
-      recordId: req.params.id,
-      action: "backup_restore",
-      newValue: { pre_restore_backup_id: result.pre_restore_backup_id },
-      memo: "Encrypted backup restored after automatic pre-restore backup",
+    await writeBackupAudit(req.params.id, "backup_restore", "Encrypted backup restored after automatic pre-restore backup", {
+      pre_restore_backup_id: result.pre_restore_backup_id,
     });
     res.json(result);
   } catch (error) {
@@ -155,7 +163,7 @@ router.post("/:id/restore", async (req, res) => {
 router.get("/:id/download", async (req, res) => {
   try {
     const { metadata, filePath } = await findBackup(backupRoot, req.params.id);
-    await writeAuditLog({ tableName: "backup_operations", recordId: req.params.id, action: "backup_download", memo: "Encrypted backup downloaded" });
+    await writeBackupAudit(req.params.id, "backup_download", "Encrypted backup downloaded");
     res.download(filePath, metadata.file_name);
   } catch (error) {
     respondError(req, res, error);

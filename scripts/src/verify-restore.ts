@@ -1,3 +1,4 @@
+import "./load-env";
 import { runRecoveryDrill } from "@workspace/backup";
 import { resolve } from "node:path";
 

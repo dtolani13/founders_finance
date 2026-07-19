@@ -61,7 +61,7 @@ test("statement and tax-rule mutations are atomic, period-guarded, and audited",
   const database = await import("@workspace/db");
   const statementsRouter = (await import("../routes/statements")).default;
   const taxReserveRouter = (await import("../routes/tax_reserve")).default;
-  const { accounts, audit_log, db, entities, monthly_close_periods, statement_lines, tax_reserve_rules } = database;
+  const { accounts, audit_log, db, entities, monthly_close_periods, reconciliation_matches, statement_lines, statements, tax_reserve_rules, transaction_lines, transactions } = database;
 
   const app = express();
   app.use(express.json());
@@ -114,6 +114,31 @@ test("statement and tax-rule mutations are atomic, period-guarded, and audited",
       notes: "Duplicate bank feed line",
     });
     assert.equal(updateLineResponse.status, 200);
+    const [reconciledAfterIgnore] = await db.select().from(statements).where(eq(statements.id, statement.id));
+    assert.equal(reconciledAfterIgnore.status, "reconciled");
+
+    const [postedTransaction] = await db.insert(transactions).values({
+      transaction_date: "2026-11-04",
+      transaction_type: "expense",
+      description: "Audit fixture",
+      total_amount: "50.00",
+      status: "posted",
+      is_balanced: true,
+    }).returning();
+    await db.insert(transaction_lines).values([
+      { transaction_id: postedTransaction.id, entity_id: entity.id, account_id: account.id, debit: "0", credit: "50" },
+      { transaction_id: postedTransaction.id, entity_id: entity.id, debit: "50", credit: "0" },
+    ]);
+    assert.equal((await request(`/api/statement-lines/${lineId}`, "PUT", { status: "unmatched" })).status, 200);
+    assert.equal((await request(`/api/statement-lines/${lineId}/match`, "POST", {
+      transaction_id: postedTransaction.id,
+      match_type: "manual",
+    })).status, 200);
+    assert.equal((await db.select().from(reconciliation_matches).where(eq(reconciliation_matches.statement_line_id, lineId))).length, 1);
+    assert.equal((await request(`/api/statement-lines/${lineId}`, "PUT", { status: "unmatched" })).status, 200);
+    assert.equal((await db.select().from(reconciliation_matches).where(eq(reconciliation_matches.statement_line_id, lineId))).length, 0);
+    const [reopenedStatement] = await db.select().from(statements).where(eq(statements.id, statement.id));
+    assert.equal(reopenedStatement.status, "reconciling");
 
     const firstTaxRule = await request("/api/tax-reserve/rules", "POST", {
       entity_id: entity.id,
@@ -134,6 +159,7 @@ test("statement and tax-rule mutations are atomic, period-guarded, and audited",
     assert.deepEqual(statementAudits.map((row) => row.action).sort(), ["add_lines", "create"]);
     const lineAudits = await db.select().from(audit_log).where(eq(audit_log.record_id, lineId));
     assert.equal(lineAudits.some((row) => row.action === "update"), true);
+    assert.equal(lineAudits.some((row) => row.action === "unreconcile"), true);
     const activeRules = await db.select().from(tax_reserve_rules).where(eq(tax_reserve_rules.is_active, true));
     assert.equal(activeRules.length, 1);
     assert.equal(Number(activeRules[0].reserve_percent), 24);

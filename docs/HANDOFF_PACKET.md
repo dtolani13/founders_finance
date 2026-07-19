@@ -1,101 +1,89 @@
 # Founders Finance Session Handoff
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
-`docs/MASTER_TODO.md` is the canonical priority and acceptance list. This packet records the current operational checkpoint.
+`docs/MASTER_TODO.md` is the canonical priority and acceptance record.
 
-## Product Purpose
+## Release Decision
 
-Founders Finance is a private, local-first, single-owner financial operations workspace. It keeps company and personal records separated while providing traceable expenses, allocations, intercompany balances, owner equity, reimbursements, tax reserves, evidence, statement reconciliation, monthly close, exports, and encrypted recovery packages.
+Founders Finance is ready for the owner's controlled local use. The personal release has a supported production launcher, protected owner entry, atomic accounting, retention controls, secure evidence, statement reconciliation, monthly close, traceable exports, and encrypted backup recovery.
 
-It is record-keeping software, not tax filing, payroll, invoicing, or legal advice.
+Customer hosting and multi-user commercialization remain a separate future release.
 
-## Current Checkpoint
+## Repository
 
 - Branch: `main`
 - Remote: `https://github.com/dtolani13/founders_finance.git`
 - Workspace: `C:\AI_Projects\Founders-Finance\Founders-Finance`
-- Local ports: web `5175`, API `8081`, PostgreSQL `55432`
-- Database migrations: seven applied, zero pending
-- Migration fingerprint: `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`
+- App: `http://127.0.0.1:5175`
+- API: `http://127.0.0.1:8081`
+- Project PostgreSQL: `127.0.0.1:55432` when `.local/pgdata` is used
+- Migrations: seven applied, zero pending
+- Schema fingerprint: `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`
 
-The app is suitable for controlled local use after the owner unlocks it and confirms a verified backup destination. Statement lines can be entered manually or through the validated CSV workflow.
+## Supported Operations
 
-## Completed In This Checkpoint
+```powershell
+pnpm run app:doctor
+pnpm run app:start
+pnpm run app:status
+pnpm run app:restart
+pnpm run app:stop
+```
 
-- Secure evidence upload, authenticated preview/download, signature/type/size checks, checksums, atomic replacement, archive retention, integrity verification, and encrypted backup/restore coverage.
-- Statement archival and inactive reference-data retention without destroying historical records.
-- Owner draw entry with balanced posted cash/equity journals, history, audit, and export.
-- Reimbursement paid, waived, and converted-to-contribution accounting outcomes.
-- Read-only audit viewer with table, action, record, and date filters plus before/after inspection.
-- Transaction detail with journal lines, allocations, evidence, audit history, balance/posting state, and controlled voiding.
-- Company closure assessment for balances, obligations, unreconciled statements, and evidence issues.
-- Account, category, vendor, and allocation-preset create/edit/deactivate/reactivate management.
-- Owner-draw and company-retention exports.
-- Responsive desktop/mobile navigation and route-level bundle splitting.
-- Guided statement CSV inspection, mapping, validation, duplicate controls, atomic import, audit detail, and confirmation-only match suggestions.
-- Intercompany settlement account selection and immutable, linked, balanced reversal with duplicate and closed-period guards.
-- Traceable accountant exports with deterministic fixtures for all 13 export types.
-- Transactional audit coverage and period protection for manual statement mutations and tax-reserve rule replacement.
+The launcher loads the root `.env`, validates configuration and storage, starts the managed database when appropriate, checks migrations, builds production assets, starts API/web services, waits for health, and records owned process state under `.local/runtime/`.
 
-## Verification Baseline
+## Release Verification
 
-- 32 authentication, backup, evidence, CSV import, export, audited-mutation, accounting, lifecycle, and period-control tests pass.
-- Shared libraries, API, frontend, and scripts pass TypeScript verification.
-- API and frontend production builds pass.
-- Empty/current-copy migration acceptance converges without row loss.
-- Seven migrations are applied locally and none are pending.
-- The main frontend chunk is 362.37 kB; the prior oversized-chunk warning is gone.
+- 32 automated tests pass.
+- TypeScript verification and both production builds pass.
+- Two consecutive Drizzle generations report no schema changes.
+- OpenAPI code generation is deterministic.
+- Seven migrations are applied with none pending.
+- Blank-database and current-copy migration acceptance converge without row loss.
+- Disposable encrypted backup acceptance restores 24 tables and evidence into a clean database with matching counts.
+- Isolated browser validation covers owner setup, two companies, category creation, balanced expense posting, intercompany settlement/reversal, statement CSV import, posted-only reconciliation, unmatch/rematch, evidence upload/preview, monthly close/reopen/reclose, encrypted backup creation/verification/recovery drill, responsive breakpoints, keyboard dialogs, and API outage messaging.
+- Project content and tracked filenames contain no prohibited hosted-builder branding or legacy product name.
 
-Vite still reports four non-blocking sourcemap-location warnings from generated UI components.
+The Vite build still prints four non-blocking source-map location warnings from UI component modules. They do not affect runtime behavior or source output.
 
-## Start Here Next Session
+## Release Fixes From Final Browser Pass
 
-1. Follow the required double-read/double-pass protocol in `docs/MASTER_TODO.md`.
-2. Confirm `git status --short --branch`, `git log -3 --oneline`, migration status, and the test baseline.
-3. Resume the isolated browser pass at statement creation/import and evidence upload.
-4. Finish monthly-close, backup, and intercompany UI interactions, then implement operational startup packaging.
+- Added controlled posting from transaction detail and filtered statement matching to posted transactions.
+- Added statement unmatch behavior and automatic reconciled/reconciling status refresh.
+- Repaired the evidence form crash caused by field-only wrappers around a manual file input.
+- Replaced Windows-fragile evidence `sendFile` handling with authenticated direct streaming.
+- Corrected backup audit events so external backup IDs are stored in the audit payload instead of a UUID-only database field.
+- Added supported local lifecycle commands and root environment loading for scripts, migrations, and schema generation.
 
-## Browser Checkpoint
+## Owner Start
 
-- Passed in an isolated database: first-run owner setup, company/default-account creation, category creation, balanced expense entry, transaction detail/audit history, and cancelable company-close and transaction-void confirmations.
-- Loaded successfully: statements, evidence, monthly close, exports, backups, and audit workspaces.
-- The disposable browser, services, database, and logs were removed after the pass.
+1. Run `pnpm run app:start`.
+2. Open `http://127.0.0.1:5175` and unlock.
+3. Confirm the real companies and accounts in Settings.
+4. Create an encrypted backup and run **Test restore** before loading substantial real data.
+5. Copy the `.ffbackup` package to a separate physical or cloud location.
 
-## Remaining Queue
+## Future Queue
 
-1. Finish statement, evidence, monthly-close, backup, and intercompany browser interactions.
-2. Add supported local production startup, readiness, shutdown, and recovery commands.
-3. Run the final release build/codegen/migration/backup/hygiene/live-health gate.
+The local-use release has no open ship blocker. Future customer-release work is listed in `NEXT_BUILD_STEPS.md` and `KNOWN_LIMITATIONS.md`.
 
 ## Important Code Locations
 
+- Local operations: `scripts/src/local-app.ts`
 - Migrations: `lib/db/drizzle/`
 - Accounting services and tests: `artifacts/api-server/src/services/`
-- Evidence storage: `artifacts/api-server/src/services/evidence-storage.ts`
 - API routes: `artifacts/api-server/src/routes/`
 - Frontend pages: `artifacts/founders-finance/src/pages/`
 - Backup engine: `lib/backup/src/index.ts`
 - API contract: `lib/api-spec/openapi.yaml`
 
-Generated files under `lib/api-client-react/src/generated/` and `lib/api-zod/src/generated/` must not be edited manually. Update OpenAPI, regenerate, and verify the second generation produces no diff.
-
-## Verification Commands
-
-```powershell
-pnpm test
-pnpm run typecheck
-pnpm run build
-pnpm run db:migrate:status
-pnpm run db:migrate:acceptance
-pnpm --filter @workspace/api-spec run codegen
-git diff --check
-```
+Generated API client and schema files must not be edited manually. Update OpenAPI, regenerate, and verify a second generation produces no diff.
 
 ## End-Of-Session Definition
 
-1. Run the relevant tests, typechecks, builds, migration drills, and repository-hygiene scans.
-2. Update the master TODO and this handoff.
+1. Run verification appropriate to the change.
+2. Update `MASTER_TODO.md` and this handoff.
 3. Perform the required final TODO/repository alignment pass.
-4. Commit and push the aligned checkpoint.
+4. Commit and push.
 5. Confirm the worktree is clean and synchronized.

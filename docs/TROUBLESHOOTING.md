@@ -4,22 +4,29 @@
 
 ---
 
-## Backend Will Not Start
+## Application Will Not Start
 
-**Symptoms:** API server workflow shows an error immediately on start. No response from `/api/healthz`.
+**Symptoms:** `pnpm run app:start` exits before reporting the application ready, or `app:status` reports an unhealthy service.
 
 **Likely causes and fixes:**
 
 | Cause | How to check | Fix |
 |---|---|---|
-| `DATABASE_URL` not set | `echo $DATABASE_URL` — should print a postgres URL | Add to local environment variables or `.env` |
-| PostgreSQL not running | `pg_isready -d $DATABASE_URL` | Start PostgreSQL service |
+| `DATABASE_URL` not set | Run `pnpm run app:doctor` | Add it to the root `.env` |
+| PostgreSQL not running | Run `pnpm run app:doctor` | Correct the URL or let the launcher start `.local/pgdata` |
 | Database does not exist | `psql $DATABASE_URL -c "\l"` — look for `founders_finance` | `createdb founders_finance` |
 | Migrations not applied | `pnpm run db:migrate:status` | Create an encrypted backup, then run `pnpm run db:migrate` |
-| Port conflict | `lsof -i :$PORT` | Kill the conflicting process |
-| Syntax error in route file | Check workflow console logs for `SyntaxError` or `TypeError` | Fix the TypeScript error, restart |
+| Port conflict | `Get-NetTCPConnection -LocalPort 5175,8081 -ErrorAction SilentlyContinue` | Stop the conflicting application, then run `pnpm run app:restart` |
+| Build or runtime error | Read `.local/runtime/api.log` and `.local/runtime/web.log` | Correct the first reported error, then restart |
 
-**Always check the workflow console logs first** — the error message will usually tell you exactly what failed.
+Start with:
+
+```powershell
+pnpm run app:doctor
+pnpm run app:status
+Get-Content .local/runtime/api.log -Tail 80
+Get-Content .local/runtime/web.log -Tail 80
+```
 
 ---
 
@@ -67,21 +74,22 @@ pnpm run db:migrate
 
 ---
 
-## Frontend Cannot Reach Backend
+## Web App Cannot Reach The API
 
 **Symptoms:** Page loads but all data shows empty or "Error loading data". Browser console shows failed `/api/*` requests.
 
 **Check in order:**
 
-1. Is the API server running?
-   ```bash
-   curl http://localhost:80/api/healthz
+1. Run `pnpm run app:status`.
+2. Check the application health route:
+   ```powershell
+   Invoke-RestMethod http://127.0.0.1:5175/api/healthz
    ```
-2. Is the local reverse proxy routing correctly? Check `local service config` in `artifacts/api-server/local-service-config/` — the `/api` path must be configured there.
-3. Is the frontend making requests to the correct base path? All API calls should use relative URLs (`/api/...`), not hardcoded ports.
-4. Check browser Network tab for the failing request — look at the actual URL and response body.
+3. Read `.local/runtime/api.log` and `.local/runtime/web.log`.
+4. Confirm application code uses relative `/api/...` URLs.
+5. Run `pnpm run app:restart` after correcting the cause.
 
-**Most common fix:** Restart the API Server workflow. If the server crashed, the proxy continues to route `/api` but gets no response.
+When the API is unavailable, the owner boundary shows a secure-service-unavailable alert. It must not report a successful mutation while the API is offline.
 
 ---
 
@@ -93,11 +101,12 @@ pnpm run db:migrate
 
 | Variable | Where to set | What it does |
 |---|---|---|
-| `DATABASE_URL` | local environment variables or `.env` | Database connection |
-| `SESSION_SECRET` | local environment variables or `.env` | Express session signing |
-| `PORT` | Set manually for local dev | HTTP port |
+| `DATABASE_URL` | Root `.env` | PostgreSQL connection |
+| `SESSION_SECRET` | Root `.env` | Server session protection; at least 32 characters |
+| `EVIDENCE_STORAGE_ROOT` | Root `.env` | Private evidence directory |
+| `BACKUP_STORAGE_ROOT` | Root `.env` | Encrypted backup directory |
 
-**For local dev:** Go to the Secrets panel and verify all three are present. `PORT` is injected automatically — do not set it manually.
+`API_PORT` and `WEB_PORT` are optional launcher overrides. Normal local use defaults to API `8081` and web `5175`.
 
 **Generating a session secret:**
 ```bash
@@ -216,11 +225,12 @@ openssl rand -hex 32
 **Fix:**
 
 1. Go to **Evidence**
-2. Create a document record:
+2. Add evidence:
    - Link it to the transaction
    - Type: `receipt`, `invoice`, `screenshot`, or `note`
-   - File path: path to the actual file (or a description if the file is pending)
-3. If you cannot find the receipt: create a `note` type record explaining that the receipt is missing and why
+   - Choose the actual file when it is available
+   - Add the company, period, and description
+3. If the receipt is unavailable, create a metadata-only `note` explaining what is missing and why
 
 The "Missing Evidence" flag clears once any document record is linked to the transaction.
 
@@ -235,18 +245,16 @@ The "Missing Evidence" flag clears once any document record is linked to the tra
 **Fix:**
 
 1. Go to **Monthly Close**
-2. Find the closed period for the entity and month
-3. Click to edit the period record and add a correction memo explaining the change
+2. Find the closed period for the company and month
+3. Select **Reopen**, enter the required correction memo, and confirm
 4. Make the correction to the transaction
-5. The correction memo serves as your audit trail
-
-**Do not:** Avoid closing periods if you frequently need to edit past transactions. Close only when you are confident the period is complete.
+5. Complete the checklist again and close the period
 
 ---
 
 ## Frontend Build Fails
 
-**Symptoms:** `pnpm --filter @workspace/founders-finance run build` exits with errors.
+**Symptoms:** `pnpm run build` exits with errors.
 
 **Fix in order:**
 
@@ -265,21 +273,19 @@ The "Missing Evidence" flag clears once any document record is linked to the tra
 
 4. If a page component has type errors: fix them in the page file — do not edit generated files.
 
-**Pre-existing `TS7030` errors** (not all code paths return a value) in some route files are accepted and will not block the build. Any new errors should be resolved.
+The four UI source-map location warnings printed by Vite are non-blocking. TypeScript errors and build failures are not accepted.
 
 ---
 
-## Backend Tests Fail
+## Automated Tests Fail
 
 **Symptoms:** Test runner reports failures.
 
-**Current state:** There are no automated tests in this project. All verification is manual.
+Run the complete root suite and preserve the first failing assertion:
 
-**Manual verification procedure:** Follow the canonical test in `docs/OPERATOR_MANUAL.md`, Section 17 — Verification Flow.
-
-To catch type errors:
-```bash
+```powershell
+pnpm test
 pnpm run typecheck
 ```
 
-If you add tests in the future: place them in `artifacts/api-server/src/__tests__/` and add a `test` script to the package.json.
+The release baseline is 32 passing tests. Database-backed tests create and remove isolated databases; they require a reachable PostgreSQL server with permission to create temporary databases. Do not point a failing test at a different production database as a workaround.

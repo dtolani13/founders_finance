@@ -11,6 +11,7 @@
     "backup:acceptance": "tsx ./src/backup-acceptance.ts",
     "migration:acceptance": "tsx ./src/migration-acceptance.ts",
     "verify-restore": "tsx ./src/verify-restore.ts",
+    "local-app": "tsx ./src/local-app.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -70,8 +70,9 @@ function MatchDialog({ line, onClose, onMatched }: {
   onMatched: () => void;
 }) {
   const { toast } = useToast();
-  const { data: transactions, isLoading } = useListTransactions({}, {
-    query: { queryKey: getListTransactionsQueryKey({}) }
+  const transactionFilters = { status: "posted" };
+  const { data: transactions, isLoading } = useListTransactions(transactionFilters, {
+    query: { queryKey: getListTransactionsQueryKey(transactionFilters) }
   });
   const { data: candidates, isLoading: candidatesLoading } = useGetStatementLineCandidates(line.id, {
     query: { queryKey: getGetStatementLineCandidatesQueryKey(line.id) },
@@ -84,7 +85,11 @@ function MatchDialog({ line, onClose, onMatched }: {
         onMatched();
         onClose();
       },
-      onError: () => toast({ title: "Failed to match", variant: "destructive" }),
+      onError: (cause: unknown) => toast({
+        title: "Could not match statement line",
+        description: (cause as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Only a posted transaction for this statement account can be matched.",
+        variant: "destructive",
+      }),
     }
   });
 
@@ -116,7 +121,7 @@ function MatchDialog({ line, onClose, onMatched }: {
               {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : !orderedTransactions.length ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No transactions found.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No posted transactions are available for this account and period.</p>
           ) : (
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted/80">

@@ -76,6 +76,17 @@ export async function requireOpenPeriod(tx: DbTransaction, entityIds: string[], 
   }
 }
 
+export async function refreshStatementReconciliationStatus(tx: DbTransaction, statementId: string) {
+  const unresolved = await tx.select({ id: statement_lines.id }).from(statement_lines).where(and(
+    eq(statement_lines.statement_id, statementId),
+    inArray(statement_lines.status, ["unmatched", "needs_review"]),
+  ));
+  const status = unresolved.length ? "reconciling" : "reconciled";
+  const [statement] = await tx.update(statements).set({ status, updated_at: new Date() })
+    .where(eq(statements.id, statementId)).returning();
+  return statement;
+}
+
 async function requireCheckingAccount(tx: DbTransaction, entityId: string, accountId?: string) {
   const rows = await tx.select().from(accounts).where(and(
     eq(accounts.entity_id, entityId),
@@ -642,6 +653,7 @@ export async function matchStatementLine(
       match_type: input.match_type,
       approved_by_user: "true",
     }).returning();
+    await refreshStatementReconciliationStatus(tx, record.statement.id);
     await writeAuditLog({
       tableName: "statement_lines",
       recordId: statementLineId,

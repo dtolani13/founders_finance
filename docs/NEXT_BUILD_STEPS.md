@@ -1,30 +1,44 @@
 # Founders Finance Next Build Steps
 
-Updated: 2026-07-18. Use `MASTER_TODO.md` for authoritative status and acceptance criteria.
+Updated: 2026-07-19. The personal local-use release is complete. Use `MASTER_TODO.md` for authoritative status and acceptance evidence.
 
-## Immediate Work Package
+## Owner Rollout
 
-Finish the frozen local-v1 release gates:
+1. Start with `pnpm run app:start` and open `http://127.0.0.1:5175`.
+2. Confirm or create each company and review its default checking and tax-reserve accounts.
+3. Enter a small real transaction and attach its evidence.
+4. Create an encrypted backup, run the recovery drill, and copy the package off the application disk.
+5. Begin normal use with the monthly checklist in `MONTHLY_WORKFLOW.md`.
 
-1. Resume the isolated browser pass at statement creation/import and evidence upload.
-2. Complete monthly-close, backup, and intercompany settlement/reversal UI interactions.
-3. Add supported local startup, readiness, shutdown, and recovery commands.
-4. Run the final production build, deterministic codegen, migration, encrypted backup/restore, repository-hygiene, and live-health gate.
+## Post-Release Hardening
 
-## Queue After Import
+These items are not blockers for the owner's local use:
 
-1. Broader accessibility and responsive verification after local-v1 release.
-2. Standardized noncritical offline/retry polish after local-v1 release.
-3. Broader reference-data dependency warnings.
+1. Add durable browser automation for critical UI workflows.
+2. Run a formal automated accessibility scan and exhaustive keyboard audit.
+3. Add broader dependency counts before reference-data deactivation.
+4. Add scheduled backup and monthly-close reminders.
+5. Design multi-user, hosted, and customer onboarding controls only when preparing a commercial clone.
 
 ## Keep Out Of Scope
 
-- Payroll, tax filing, automatic tax advice, and invoicing.
-- Public multi-tenant SaaS behavior.
-- Bank sync until CSV statement import is proven in regular use.
-- OCR without mandatory owner review.
-- Multi-currency until a real requirement exists.
+- Payroll, tax filing, automatic tax advice, and invoicing
+- Public multi-tenant deployment in the personal release
+- Bank sync until CSV import is proven in regular use
+- OCR without mandatory owner review
+- Multi-currency without a real requirement
 
-## Verification
+## Verification Gate
 
-After each checkpoint run tests, all typechecks, both production builds, migration status/acceptance where applicable, deterministic OpenAPI generation, and the repository hygiene scans documented in `MASTER_TODO.md`.
+After material changes run:
+
+```powershell
+pnpm test
+pnpm run typecheck
+pnpm run build
+pnpm run db:migrate:status
+pnpm run db:migrate:acceptance
+pnpm run backup:acceptance
+pnpm --filter @workspace/api-spec run codegen
+git diff --check
+```

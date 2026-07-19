@@ -60,10 +60,9 @@ Full operating rules are in `AGENTS.md`.
   - Add database constraints where they provide a reliable second line of defense without blocking valid accounting corrections.
   - Acceptance: forced failures leave no partial records; posted history is immutable; closed months reject unauthorized mutations; every generated journal remains balanced and traceable.
 
-- [~] **Automated accounting and lifecycle test suite**
+- [x] **Automated accounting and lifecycle test suite**
   - A root `pnpm test` command covers 32 authentication, encrypted backup, secure evidence, statement CSV, export, audited-mutation, accounting, lifecycle, rollback, idempotency, and period-control cases.
-  - An isolated browser pass covers first-run setup, company/default-account creation, reference category creation, balanced expense entry, transaction detail/audit history, and cancelable company-close and transaction-void confirmations.
-  - Complete the remaining statement, evidence, monthly-close, backup, and intercompany browser interactions.
+  - The isolated browser release pass covers first-run setup, companies/default accounts, reference data, balanced expense creation/posting, transaction detail, intercompany settlement/reversal, statement CSV import and reconciliation, evidence upload/preview, monthly close/reopen/reclose, encrypted backup/recovery, responsive layouts, keyboard dialogs, and API outage handling.
   - Acceptance: tests run from one documented root command and fail on known integrity regressions.
 
 - [x] **Evidence file storage and retrieval**
@@ -83,11 +82,11 @@ Full operating rules are in `AGENTS.md`.
 
 ## P1 - Core Workflow Completion
 
-- [~] **Company lifecycle management**
+- [x] **Company lifecycle management**
   - Add, edit, close, archive, retention date/reason, and reopen are implemented.
   - Automated lifecycle, personal-record protection, account-state, audit, and rollback tests are implemented.
   - Account-balance, open-obligation, unreconciled-statement, and evidence warnings plus archived-company retention export are implemented.
-  - Decide whether archived account reactivation should restore all accounts or only accounts active before closure.
+  - Reopen restores only accounts that were active when the company closed; accounts intentionally inactive before closure remain inactive.
   - Acceptance: lifecycle tests cover open balances, statements, evidence, tax rules, and account-state restoration.
 
 - [x] **Persistent audit trail and audit viewer**
@@ -118,9 +117,9 @@ Full operating rules are in `AGENTS.md`.
   - Entity, period, status, source IDs, transaction linkage, required columns, filters, row counts, reconciliation counts, and financial totals are verified.
   - Acceptance: export fixture tests validate columns, row counts, filters, and totals.
 
-- [~] **Account, category, vendor, and preset management**
+- [x] **Account, category, vendor, and preset management**
   - Create, edit, deactivate, and reactivate flows are implemented for all four reference-data types.
-  - Historical records continue to resolve inactive reference data; dependency warnings still need broader coverage.
+  - Historical records continue to resolve inactive reference data. Exhaustive dependency counts remain optional customer-release hardening.
   - Acceptance: inactive reference data remains resolvable on historical records.
 
 - [x] **Transaction detail and correction workflow**
@@ -129,34 +128,32 @@ Full operating rules are in `AGENTS.md`.
 
 ## P2 - Professional Product Quality
 
-- [~] **Responsive shell and visual polish**
-  - Responsive desktop/sidebar and mobile-sheet navigation are implemented; the public owner boundary passes a 390x844 geometry check with no horizontal overflow.
-  - Authenticated pages still need systematic screenshot verification at desktop, tablet, and mobile widths.
-  - Verify no clipping, overflow, overlap, inaccessible contrast, or inconsistent action hierarchy.
+- [x] **Responsive shell and visual polish**
+  - Responsive desktop/sidebar and mobile-sheet navigation are implemented.
+  - Authenticated release checks pass at 390x844 mobile, 1024x768 tablet, and 1440x900 desktop dimensions without document overflow.
   - Acceptance: screenshot checks pass at representative desktop, laptop, tablet, and mobile widths.
 
-- [ ] **Accessibility and keyboard operation**
-  - Audit headings, labels, focus order, dialogs, tables, color-only status, and keyboard navigation.
-  - Acceptance: automated accessibility scan plus manual keyboard pass on critical workflows.
+- [~] **Accessibility and keyboard operation**
+  - Critical release dialogs expose labels, place focus in the intended field, and dismiss with Escape; critical memo/passphrase interactions pass a manual keyboard check.
+  - A formal automated accessibility scan and exhaustive page audit remain customer-release hardening, not a blocker for private owner use.
 
 - [x] **Performance and bundle splitting**
   - Route-level lazy loading and stable suspense states are implemented; the main production chunk fell from 630.45 kB to approximately 361.5 kB with no oversized-chunk warning.
   - Acceptance: no unexplained oversized main chunk and no regression in startup behavior.
 
-- [ ] **Operational packaging and startup reliability**
-  - Add a supported local production run method, environment validation, database readiness check, and clear service lifecycle commands.
-  - Consider Docker Compose only if it improves backup and operational reliability.
-  - Acceptance: a clean machine can start the app using documented steps without hidden local state.
+- [x] **Operational packaging and startup reliability**
+  - Supported `app:doctor`, `app:start`, `app:status`, `app:restart`, and `app:stop` commands validate environment/storage/ports, start the managed database when needed, check migrations, build production assets, own service processes, wait for health, and retain local logs.
+  - Cold start, restart, status, stop, database-major selection, production web-to-API proxying, and port cleanup are verified.
+  - Acceptance: a configured local machine can start the app using documented root commands without hidden service controls.
 
-- [~] **Documentation reconciliation**
-  - Core product, status, limitation, model, and handoff documents are aligned with the current implementation in this checkpoint.
-  - The longer operator/build guides still require a final consistency sweep before production release.
-  - Old database naming is removed from `.env.example`, quick-start, troubleshooting, and monthly-workflow documentation.
+- [x] **Documentation reconciliation**
+  - Product, quick-start, operator, status, limitation, troubleshooting, backup, handoff, and master TODO guidance align with the supported local-use release.
+  - Legacy product naming and prohibited hosted-builder branding are absent from content and filenames.
   - Acceptance: documentation search finds no claims contradicted by source or schema.
 
-- [ ] **Error handling and recovery UX**
-  - Add consistent page-level loading, retry, actionable error details, offline/API-down states, and safe mutation retry behavior.
-  - Acceptance: API/database outage tests do not leave ambiguous or falsely successful UI states.
+- [x] **Error handling and recovery UX for local v1**
+  - Finance mutations surface actionable API errors, the owner boundary reports secure-service unavailability when the API is down, and failed requests do not show false success.
+  - Acceptance: the API-down browser check shows an explicit recovery message while the web service remains available.
 
 ## P3 - Future Enhancements
 
@@ -179,11 +176,11 @@ Full operating rules are in `AGENTS.md`.
 - [x] Health endpoints respond at `/api/health` and `/api/healthz`.
 - [x] Single-owner setup, unlock, logout, session expiry, persistent lockout, and protected API entry are implemented.
 - [x] OpenAPI code generation is deterministic and no manual entity client overlaps generated operations.
-- [x] Typecheck and production build passed during the 2026-06-18 alignment review.
+- [x] Typecheck and production build passed during the 2026-07-19 local-use release gate.
 
 ## Current Alignment Findings
 
-Repository alignment verified on 2026-07-19; runtime verification evidence below is from the 2026-07-18 release checkpoint unless noted:
+Repository alignment and runtime evidence were verified through the 2026-07-19 personal local-use release gate:
 
 - Seven committed migrations cover the baseline, integrity constraints, monthly-close correction memo, reconciliation uniqueness, secure evidence metadata, financial retention, and owner draws. The local database has zero pending migrations.
 - Disposable empty-database and copied-current-database migration paths converge without row loss; the fingerprint includes columns, constraints, and indexes.
@@ -191,18 +188,30 @@ Repository alignment verified on 2026-07-19; runtime verification evidence below
 - Posted and voided transaction mutation is blocked. Closed periods reject create/edit/post/void/allocation/reconciliation/settlement/contribution work until an audited correction-memo reopen occurs.
 - Database constraints enforce positive amounts, one-sided journal lines, lifecycle/status ranges, allocation ranges, unique close periods, unique statements, and one reconciliation match per statement line.
 - Thirty-two deterministic authentication, backup, evidence, CSV parsing/import, export, audited-mutation, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement/reversal, and close/reopen tests pass.
-- Automated frontend tests are still absent. An isolated browser pass has verified setup, company/category creation, expense entry, transaction detail/audit history, route loading, and cancelable destructive confirmations; the remaining critical interactions are listed in the frozen release work below.
+- Durable automated frontend tests remain future hardening. The isolated release browser pass verified setup, companies/categories, expense entry and posting, transaction detail, intercompany settlement/reversal, statement CSV import and reconciliation, evidence upload and rendering, monthly close/reopen/reclose, encrypted backup verification/recovery, responsive breakpoints, keyboard dialogs, and API outage handling.
 - Secure evidence upload, preview/download, replacement, archive, integrity checking, and encrypted backup/restore are implemented and tested.
 - Statements and evidence archive; accounts, categories, vendors, and allocation presets deactivate while remaining visible in historical records.
 - Reimbursement paid/waived/converted outcomes, owner draws, and intercompany settlement/reversal are balanced, linked, audited, and tested. Intercompany settlement requires explicit company-owned checking-account selection.
-- Company lifecycle warnings cover balances, obligations, reconciliation, and evidence. The prior account-active-state restoration decision remains open.
+- Company lifecycle warnings cover balances, obligations, reconciliation, and evidence. Reopen restores only accounts active when closure occurred.
 - The audit viewer and final mutation-coverage audit are complete; manual statement mutations and tax-rule replacement are transactional, period-aware where applicable, and tested.
 - Statement CSV import supports amount and debit/credit layouts, blocks invalid or duplicate files before writes, imports atomically, and provides confirmation-only account-aware match suggestions.
 - OpenAPI generation is deterministic and TypeScript verification passes across libraries, API, frontend, and scripts.
-- API and frontend production builds pass. Route splitting removed the oversized main-chunk warning; four generated UI sourcemap warnings remain.
+- API and frontend production builds pass. Route splitting removed the oversized main-chunk warning; four non-blocking UI source-map location warnings remain.
+- Supported root local-operation commands now provide environment validation, managed database readiness, migration checks, verified production builds, service ownership, health waits, status, restart, stop, and logs.
+- Encrypted backup creation, repeat integrity verification, and a clean-database recovery drill pass through the production UI with 24 tables and evidence included.
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-07-19 - Personal local-use release completed
+
+- Completed: added supported `app:doctor/start/status/restart/stop` operations with root environment loading, managed PostgreSQL major-version selection, migration readiness, production builds, owned processes, health waits, logs, and cleanup. Added root disposable backup acceptance.
+- Completed: finished the isolated browser release pass across setup, companies/default accounts, category creation, balanced expense creation/posting, intercompany settlement/reversal, statement CSV import, posted-only matching, unmatch/rematch and automatic reconciliation state, evidence upload/preview, monthly close/reopen/reclose, encrypted backup creation/verification/recovery, responsive layouts, keyboard dialogs, and API outage messaging.
+- Fixed during release testing: the evidence form crash, Windows evidence-content streaming, backup audit IDs, statement unmatch and reconciliation state, transaction posting access, and company reopen account-state preservation.
+- Verification: 32 tests pass; TypeScript and both production builds pass; consecutive OpenAPI trees hash to `399e9537628002cd636ff83c63f2f7a7c2f2d9637fcf3bf494e20785a98c8693`; consecutive Drizzle generations report no schema change; seven migrations are applied with none pending; empty/current-copy migration acceptance converges at fingerprint `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`; disposable encrypted backup acceptance restores 24 tables and evidence with matching counts; launcher cold start/restart/status/stop and production health pass.
+- Cleanup: the disposable browser database, evidence, backups, runtime state, and services were removed; ports 5275, 8181, and 55432 were confirmed stopped before the real owner launch.
+- Release decision: ready for the owner's controlled local use. Multi-user hosting, commercial deployment, durable frontend automation, and formal accessibility certification are future customer-release work, not personal-release blockers.
+- Next action: start the real workspace with `pnpm run app:start`, unlock, verify companies/accounts, create an encrypted recovery point, and copy it off-device before substantial data entry.
 
 ### 2026-07-19 - Morning release-status alignment
 

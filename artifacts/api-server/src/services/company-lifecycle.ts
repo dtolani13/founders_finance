@@ -157,7 +157,19 @@ async function transitionCompany(
         : (input.archive_reason === undefined ? existing.archive_reason : input.archive_reason),
       updated_at: now,
     }).where(eq(entities.id, companyId)).returning();
-    await tx.update(accounts).set({ is_active: active, updated_at: now }).where(eq(accounts.entity_id, companyId));
+    if (active && existing.closed_at) {
+      await tx.update(accounts)
+        .set({ is_active: true, updated_at: now })
+        .where(and(
+          eq(accounts.entity_id, companyId),
+          eq(accounts.is_active, false),
+          eq(accounts.updated_at, existing.closed_at),
+        ));
+    } else if (!active) {
+      await tx.update(accounts)
+        .set({ is_active: false, updated_at: now })
+        .where(and(eq(accounts.entity_id, companyId), eq(accounts.is_active, true)));
+    }
     await writeAuditLog({
       tableName: "entities",
       recordId: companyId,
@@ -165,7 +177,7 @@ async function transitionCompany(
       previousValue: existing,
       newValue: updated,
       memo: active
-        ? "Company reopened and company accounts reactivated."
+        ? "Company reopened and accounts active at closure reactivated."
         : `Company ${targetStatus}; records preserved and company accounts deactivated.`,
     }, tx);
     return updated;

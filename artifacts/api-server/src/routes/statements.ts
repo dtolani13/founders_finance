@@ -1,7 +1,7 @@
 import { extname } from "node:path";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { statements, statement_lines, accounts, transactions, transaction_lines, vendors } from "@workspace/db";
+import { statements, statement_lines, accounts, reconciliation_matches, transactions, transaction_lines, vendors } from "@workspace/db";
 import { and, eq, desc, inArray } from "drizzle-orm";
 import multer from "multer";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import {
   FinancialOperationError,
   importStatementLines,
   matchStatementLine,
+  refreshStatementReconciliationStatus,
   requireActiveEntities,
   requireOpenPeriod,
 } from "../services/financial-operations";
@@ -328,9 +329,28 @@ router.put("/:id", async (req, res) => {
         throw new FinancialOperationError("Use the reconciliation action to match a statement line.", 400, "MATCH_ACTION_REQUIRED");
       }
       if (existingLine.status === "matched" && body.status !== undefined) {
-        throw new FinancialOperationError("Matched lines require an explicit unmatch workflow.", 409, "UNMATCH_ACTION_REQUIRED");
+        if (body.status !== "unmatched") {
+          throw new FinancialOperationError("Matched lines can only return to unmatched review.", 409, "UNMATCH_ACTION_REQUIRED");
+        }
+        await tx.delete(reconciliation_matches).where(eq(reconciliation_matches.statement_line_id, id));
+        const [unmatched] = await tx.update(statement_lines).set({
+          ...update,
+          status: "unmatched",
+          matched_transaction_id: null,
+        }).where(eq(statement_lines.id, id)).returning();
+        await refreshStatementReconciliationStatus(tx, existingLine.statement_id);
+        await writeAuditLog({
+          tableName: "statement_lines",
+          recordId: unmatched.id,
+          action: "unreconcile",
+          previousValue: existingLine,
+          newValue: unmatched,
+          memo: "Statement line returned to unmatched review; prior reconciliation link removed.",
+        }, tx);
+        return unmatched;
       }
       const [updated] = await tx.update(statement_lines).set(update).where(eq(statement_lines.id, id)).returning();
+      await refreshStatementReconciliationStatus(tx, existingLine.statement_id);
       await writeAuditLog({
         tableName: "statement_lines",
         recordId: updated.id,

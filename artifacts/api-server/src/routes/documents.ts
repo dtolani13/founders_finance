@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { createReadStream, mkdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { Router, type NextFunction, type Request, type Response } from "express";
@@ -197,9 +197,13 @@ router.get("/:id/content", async (req, res, next) => {
     res.setHeader("Content-Length", String(content.bytes));
     res.setHeader("Content-Disposition", `${disposition}; filename*=UTF-8''${encodedName}`);
     res.setHeader("Cache-Control", "private, no-store");
-    res.sendFile(content.path, (error) => {
-      if (error && !res.headersSent) next(error);
+    const stream = createReadStream(content.path);
+    stream.on("error", (error) => {
+      req.log.error({ err: error, documentId: req.params.id }, "Failed to stream evidence content");
+      if (!res.headersSent) next(error);
+      else res.destroy(error);
     });
+    stream.pipe(res);
   } catch (error) {
     handleRouteError(error, req, res, "Failed to retrieve evidence");
   }

@@ -86,4 +86,4 @@ This app uses single-owner passphrase authentication. It is intended for one fou
 
 ## Audit Trail
 
-Every write to the database is timestamped via `created_at` / `updated_at` columns. The API server logs all void and correction operations at INFO level with the record ID and previous state. Check API server logs for a full audit trail.
+Material finance and lifecycle mutations write before/after context or an operation memo to the persistent `audit_log` table. Use the in-app **Audit Log** workspace for the financial audit trail. Runtime API logs are diagnostic records and are not a substitute for the database audit history.

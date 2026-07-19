@@ -266,18 +266,16 @@ export default function Evidence() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormItem>
-                    <FormLabel>File</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="file"
-                        accept={FILE_ACCEPT}
-                        onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                        data-testid="input-evidence-file"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="evidence-file">File</label>
+                    <Input
+                      id="evidence-file"
+                      type="file"
+                      accept={FILE_ACCEPT}
+                      onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                      data-testid="input-evidence-file"
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField control={form.control} name="entity_id" render={({ field }) => (

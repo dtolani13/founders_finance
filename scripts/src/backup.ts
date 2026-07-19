@@ -1,3 +1,4 @@
+import "./load-env";
 import { createBackup, verifyBackup } from "@workspace/backup";
 import { resolve } from "node:path";
 

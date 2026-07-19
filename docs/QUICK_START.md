@@ -1,217 +1,132 @@
-# Quick Start — Founders Finance
+# Quick Start - Founders Finance
 
-> Get the app running from scratch in under 10 minutes.
-
----
+This is the supported local-use startup procedure.
 
 ## Prerequisites
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Node.js | 20+ | Check: `node --version` |
-| pnpm | 9+ | Check: `pnpm --version`. Install: `npm i -g pnpm` |
-| PostgreSQL | 15+ | Must be running and accessible via connection string |
+- Windows with Node.js 20 or newer
+- pnpm 9 or newer
+- PostgreSQL 15 or newer, including `pg_dump` and `pg_restore`
+- The repository at `C:\AI_Projects\Founders-Finance\Founders-Finance`
 
----
+The launcher can start the project-managed PostgreSQL data directory under `.local/pgdata` when it already exists. Otherwise, configure a reachable PostgreSQL database in `.env`.
 
-## Environment Variables
+## First-Time Setup
 
-Copy the example file and fill in your values:
+From the repository root:
 
-```bash
-cp .env.example .env
+```powershell
+pnpm install
+Copy-Item .env.example .env
 ```
 
-Edit `.env`:
+Set at least these values in `.env`:
 
-```env
-# PostgreSQL connection string
-DATABASE_URL=postgresql://username:password@localhost:5432/founders_finance
-
-# Express session secret — generate a random string, keep it private
-SESSION_SECRET=your-random-secret-here-minimum-32-characters
-
-# set manually for local dev; set manually for local dev
-PORT=3001
+```dotenv
+DATABASE_URL=postgresql://username:password@127.0.0.1:55432/founders_finance
+SESSION_SECRET=replace-with-a-random-secret-at-least-32-characters
+EVIDENCE_STORAGE_ROOT=./evidence
+BACKUP_STORAGE_ROOT=./backups
 ```
 
-**For local dev:** `DATABASE_URL` and `SESSION_SECRET` are already provisioned as local environment variables. `PORT` is set automatically per-workflow. You do not need to create a `.env` file.
+Do not commit `.env`. The API and web ports are managed by the launcher and default to `8081` and `5175`.
 
-**For local development:** Create `.env` manually. Use `openssl rand -hex 32` to generate a secure `SESSION_SECRET`.
+Apply the committed migrations:
 
----
-
-## Database Setup
-
-### Create the database (local only — skip For local dev)
-
-```bash
-createdb founders_finance
-```
-
-Or using psql:
-
-```sql
-CREATE DATABASE founders_finance;
-```
-
-### Apply the schema
-
-This applies the committed migration chain. Run it on first setup and whenever the repository adds a migration:
-
-```bash
+```powershell
+pnpm run db:migrate
 pnpm run db:migrate:status
+```
+
+Expected migration status: `pending` is `0`.
+
+## Start Founders Finance
+
+```powershell
+pnpm run app:doctor
+pnpm run app:start
+```
+
+Open [http://127.0.0.1:5175](http://127.0.0.1:5175).
+
+On a new database, the first screen creates the owner passphrase. Keep that passphrase in a password manager. Existing databases show the unlock screen.
+
+The launcher performs all of these checks before reporting ready:
+
+1. Loads and validates the root `.env`.
+2. Validates storage directories and port configuration.
+3. Starts the project PostgreSQL instance when it owns `.local/pgdata` and the configured database is offline.
+4. Confirms all committed migrations are applied.
+5. Runs the production typecheck and build.
+6. Starts the API and Vite production preview.
+7. Waits for API and web health checks.
+
+## Daily Commands
+
+```powershell
+pnpm run app:status
+pnpm run app:restart
+pnpm run app:stop
+```
+
+Runtime state and logs are under `.local/runtime/` and are excluded from Git.
+
+## Backup Before Real Data
+
+1. Open **Backup & Restore**.
+2. Enter a unique backup passphrase of at least 12 characters.
+3. Create a backup and run **Test restore**.
+4. Download the `.ffbackup` package.
+5. Copy it to a separate drive or a cloud folder.
+6. Store the passphrase separately in a password manager.
+
+The command-line acceptance drill is also available:
+
+```powershell
+pnpm run backup:acceptance
+```
+
+It creates a disposable encrypted package, verifies it, restores it into a clean temporary database, compares all table counts, and removes the temporary data.
+
+## Safe Database Changes
+
+```powershell
+pnpm run db:migrate:status
+pnpm run db:migrate:acceptance
 pnpm run db:migrate
 ```
 
-Do not use `drizzle-kit push` against a database containing financial data. See [Database Migrations](DATABASE_MIGRATIONS.md) for baseline adoption and the disposable-database acceptance drill.
+Never use `drizzle-kit push` against financial data. Never drop a database to resolve a production migration problem. Verify a backup, correct the migration in source, run disposable acceptance, and then retry.
 
----
+## Development Commands
 
-## Install Dependencies
+For source development only:
 
-```bash
-pnpm install
-```
-
----
-
-## Run the Backend (API Server)
-
-```bash
-pnpm --filter @workspace/api-server run dev
-```
-
-The API server starts on the port defined by `PORT` (default: set this manually for local dev).
-
-Confirm it is running:
-
-```bash
-curl http://localhost:$PORT/api/healthz
-# Expected: {"status":"ok"}
-```
-
-For local dev, use the shared proxy:
-
-```bash
-curl http://localhost:80/api/healthz
-```
-
----
-
-## Run the Frontend
-
-```bash
-pnpm --filter @workspace/founders-finance run dev
-```
-
-The frontend Vite dev server starts on a separate port (also assigned by `PORT` for that workflow).
-
-For local dev, the preview pane will open automatically when both workflows are running.
-
----
-
-## Regenerate API Client (after spec changes)
-
-If `lib/api-spec/openapi.yaml` is changed, regenerate the TypeScript client and Zod schemas:
-
-```bash
+```powershell
+pnpm run typecheck
+pnpm test
+pnpm run build
 pnpm --filter @workspace/api-spec run codegen
+pnpm run db:generate
 ```
 
----
+Use the supported `app:*` commands for normal owner operation.
 
-## Typecheck
+## If Startup Fails
 
-```bash
-pnpm run typecheck
+```powershell
+pnpm run app:doctor
+pnpm run app:status
+Get-Content .local/runtime/api.log -Tail 80
+Get-Content .local/runtime/web.log -Tail 80
 ```
 
-This runs TypeScript verification across all workspace packages. Any error must be resolved before deploying.
+Common fixes:
 
----
+- Correct `DATABASE_URL` or `SESSION_SECRET` in `.env`.
+- Run `pnpm run db:migrate` if migrations are pending.
+- Stop a conflicting process on ports `5175` or `8081`.
+- Confirm the matching PostgreSQL client tools are installed.
+- Run `pnpm run app:restart` after correcting the issue.
 
-## Production Build (frontend)
-
-```bash
-pnpm --filter @workspace/founders-finance run build
-```
-
-Output is in `artifacts/founders-finance/dist/`. The API server handles production serving if configured.
-
----
-
-## For local dev — Workflows
-
-Both services are managed by the local development scripts described above.
-
-To restart manually:
-
-| Service | Workflow name |
-|---|---|
-| API Server | `artifacts/api-server: API Server` |
-| Frontend | `artifacts/founders-finance: web` |
-
----
-
-## If the App Does Not Start
-
-### API server fails immediately
-
-Check that `DATABASE_URL` is set and the PostgreSQL instance is running:
-
-```bash
-echo $DATABASE_URL
-pnpm --filter @workspace/api-server run dev 2>&1 | head -30
-```
-
-Common causes:
-- `DATABASE_URL` not set → set it in `.env` or local environment variables
-- PostgreSQL not running → start postgres service
-- Database does not exist → run `createdb founders_finance`
-- Migrations pending → run `pnpm run db:migrate:status`, then `pnpm run db:migrate`
-
-### Frontend cannot reach the API
-
-For local dev, the shared proxy routes `/api` to the API server and `/` to the frontend. If the API server is not running, all `/api` calls will return 502 or 503.
-
-Check: Is the API server workflow running? Is `/api/healthz` responding?
-
-```bash
-curl http://localhost:80/api/healthz
-```
-
-If not: restart the API Server workflow.
-
-### Frontend build fails
-
-Run typecheck first to identify the actual error:
-
-```bash
-pnpm run typecheck
-```
-
-If generated files are out of date:
-
-```bash
-pnpm --filter @workspace/api-spec run codegen
-pnpm run typecheck
-```
-
-### Database migration fails
-
-If `pnpm run db:migrate` fails, preserve the first database error and run `pnpm run db:migrate:status`. Migrations are transactional, so a failed migration remains pending.
-
-1. For a disposable development database, recreate it and run `pnpm run db:migrate`.
-2. For financial data, do not drop or patch the database manually. Verify the pre-migration backup, correct the migration in source, and run `pnpm run db:migrate:acceptance` before retrying.
-
-### Port already in use
-
-On local development, if another process is using the same port:
-
-```bash
-lsof -i :3001
-kill -9 <PID>
-```
-
-Then restart the server.
+See [Troubleshooting](TROUBLESHOOTING.md) for detailed recovery procedures.

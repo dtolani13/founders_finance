@@ -1,3 +1,4 @@
+import "./load-env";
 import { createBackup, runRecoveryDrill, verifyBackup } from "@workspace/backup";
 import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";

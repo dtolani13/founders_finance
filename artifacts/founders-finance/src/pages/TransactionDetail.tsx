@@ -4,6 +4,7 @@ import {
   getGetTransactionQueryKey,
   getListTransactionsQueryKey,
   useGetTransaction,
+  usePostTransaction,
   useVoidTransaction,
 } from "@workspace/api-client-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { entityBadgeStyle, formatCurrency, formatDate } from "@/lib/utils";
-import { AlertCircle, ArrowLeft, ExternalLink, FileCheck2, History, Scale, XCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, ExternalLink, FileCheck2, History, Scale, XCircle } from "lucide-react";
 
 function timestamp(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -25,6 +26,19 @@ export default function TransactionDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useGetTransaction(id, { query: { queryKey: getGetTransactionQueryKey(id) } });
+  const postMutation = usePostTransaction({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTransactionQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
+        toast({ title: "Transaction posted", description: "The balanced journal is now part of the permanent ledger." });
+      },
+      onError: (cause: unknown) => toast({
+        title: (cause as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Transaction could not be posted",
+        variant: "destructive",
+      }),
+    },
+  });
   const voidMutation = useVoidTransaction({
     mutation: {
       onSuccess: () => {
@@ -59,6 +73,15 @@ export default function TransactionDetail() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right"><p className="text-xs text-muted-foreground">Total</p><p className="font-mono text-2xl font-bold">{formatCurrency(transaction.total_amount)}</p></div>
+          {transaction.status === "draft" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild><Button size="sm" disabled={!transaction.is_balanced}><CheckCircle2 className="mr-1.5 h-4 w-4" />Post</Button></AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Post this transaction?</AlertDialogTitle><AlertDialogDescription>Posting adds this balanced journal to the permanent ledger. Posted lines cannot be edited directly; corrections use a controlled void or reversal.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => postMutation.mutate({ id })}>Post Transaction</AlertDialogAction></AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {transaction.status !== "voided" && (
             <AlertDialog>
               <AlertDialogTrigger asChild><Button variant="outline" size="sm"><XCircle className="mr-1.5 h-4 w-4" />Void</Button></AlertDialogTrigger>

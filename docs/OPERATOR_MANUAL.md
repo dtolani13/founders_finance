@@ -6,7 +6,7 @@
 
 ## 1. What the App Is
 
-Founders Finance is a private, single-user finance control system for a solo founder managing three legal entities. It tracks:
+Founders Finance is a private, single-owner finance control system for a founder managing multiple companies and personal records. It tracks:
 
 - Money movement within and between entities
 - Entity separation (who paid, who benefited)
@@ -19,7 +19,7 @@ Founders Finance is a private, single-user finance control system for a solo fou
 - Monthly close process
 - CSV exports for accountant review
 
-It runs locally or on a private deployment. There is no public access, no login screen, and no multi-user support by design.
+It runs locally behind an owner setup/unlock boundary. Every finance API route requires the protected owner session. Multi-user access is not part of this personal release.
 
 ---
 
@@ -32,7 +32,7 @@ It runs locally or on a private deployment. There is no public access, no login 
 | Payroll | No employee pay, W-2, or payroll tax logic |
 | Invoicing | No invoice generation or accounts receivable workflow |
 | Bank sync | No Plaid, no automatic transaction import |
-| OCR receipt scanner | Evidence is metadata-only; no file parsing |
+| OCR receipt scanner | Files are securely stored and previewed, but their contents are not automatically extracted or posted |
 | QuickBooks clone | Intentionally simpler and entity-separation focused |
 | Multi-currency | All amounts are USD |
 
@@ -432,45 +432,51 @@ All exports are CSV files generated in the browser from live API data.
 5. Add allocation rows — one per entity receiving the benefit
 6. Enter either percentage or dollar amount per entity
 7. If any allocation goes to Personal / Founder, the app shows a non-deductible warning
-8. Submit — intercompany balances are created automatically if cross-entity
+8. Submit - the balanced transaction is created and intercompany balances are generated for cross-company allocations
+
+### Posting the transaction
+
+9. Open the transaction detail
+10. Verify the journal lines, allocations, and balance state
+11. Select **Post** when the record is final
 
 ### Attaching evidence
 
-9. Go to **Evidence**
-10. Create a document record: link to the transaction, enter file path or note, select type
-11. Mark status as `needs_review` until you have verified the amount matches the receipt
+12. Go to **Evidence**
+13. Select **Add evidence**, choose the file, link the transaction and company, and enter its type, period, and description
+14. Confirm the file appears as **Verified file** and that **Preview** renders it
 
 ### Reconciling a statement
 
-12. Go to **Statements**
-13. Create a statement for the period and account
-14. Enter statement lines (date, description, amount)
-15. Match each line to a posted transaction
-16. Mark unmatched lines as `ignored` if they are internal transfers already recorded elsewhere
+15. Go to **Statements**
+16. Create a statement for the period and account
+17. Import a mapped CSV or add an isolated manual line
+18. Match each line to a posted transaction
+19. Mark a line `ignored` only after confirming it should not be matched
 
 ### Reviewing reimbursements
 
-17. Go to **Reimbursements**
-18. Review pending items
-19. When paid, mark as `paid` with the payment date
+20. Go to **Reimbursements**
+21. Review pending items
+22. Complete each item as paid, waived, or converted to contribution with the required details
 
 ### Reviewing tax reserve
 
-20. Go to **Tax Reserve**
-21. Review the suggested transfer amount for the period
-22. Record the transfer transaction manually
+23. Go to **Tax Reserve**
+24. Review the suggested transfer amount for the period
+25. Record the transfer transaction manually
 
 ### Closing the month
 
-23. Go to **Monthly Close**
-24. Verify the checklist for each entity
-25. Click Close Period — enter a correction memo if anything changed after initial entry
+26. Go to **Monthly Close**
+27. Complete all seven checklist items for each company
+28. Select **Close Period**. If a correction is later required, select **Reopen** and enter the mandatory memo before changing records
 
 ### Exporting records
 
-26. Go to **Exports**
-27. Select the report type and any filters
-28. Download CSV and deliver to accountant or archive
+29. Go to **Exports**
+30. Select the report type and any filters
+31. Download CSV and deliver to the accountant or archive
 
 ---
 
