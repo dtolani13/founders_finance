@@ -298,6 +298,6 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 
 ### 2026-07-19 - Brand slogan update
 
-- Completed: replaced the former logo slogan with **WHERE CASH FLOWS. WHERE EVERY DOLLAR GOES.** across the high-resolution and standard production logo assets, application chrome, owner-entry accessibility text, and session handoff.
+- Completed: replaced the former logo slogan with **WHERE CASH FLOWS. WHERE EVERY DOLLAR GOES.** across the high-resolution and standard production logo assets, application chrome, owner-entry accessibility text, and session handoff. The compact sidebar presents the slogan as two intentional, non-wrapping lines.
 - Verification: visually inspected the 2036x1018 exported master; confirmed exact spelling, punctuation, spacing, and no clipping; frontend TypeScript verification and the production Vite build pass.
 - Deliverable: owner copies are saved in Downloads as `FoundersFinance_logo_where-cash-flows_highres.png` and `FoundersFinance_logo_where-cash-flows.png`.

@@ -158,8 +158,9 @@ export function AppLayout({
               </div>
             </div>
           </div>
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
-            Where Cash Flows. Where Every Dollar Goes.
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
+            <span className="block whitespace-nowrap">Where Cash Flows.</span>
+            <span className="mt-0.5 block whitespace-nowrap">Where Every Dollar Goes.</span>
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-md border border-slate-700/80 bg-slate-950/60 px-3 py-2">
