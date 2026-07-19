@@ -12,8 +12,9 @@ import {
 import { writeAuditLog } from "../lib/audit";
 
 const router = Router();
-const backupRoot = resolve(process.env.BACKUP_STORAGE_ROOT ?? process.env.BACKUP_ROOT ?? "backups");
-const evidenceRoot = resolve(process.env.EVIDENCE_STORAGE_ROOT ?? "evidence");
+const applicationRoot = process.env.FOUNDERS_FINANCE_HOME ?? process.cwd();
+const backupRoot = resolve(applicationRoot, process.env.BACKUP_STORAGE_ROOT ?? process.env.BACKUP_ROOT ?? "backups");
+const evidenceRoot = resolve(applicationRoot, process.env.EVIDENCE_STORAGE_ROOT ?? "evidence");
 const postgresBin = process.env.POSTGRES_BIN;
 const databaseUrl = process.env.DATABASE_URL;
 

@@ -115,7 +115,8 @@ Full operating rules are in `AGENTS.md`.
 - [x] **Export correctness and accountant handoff**
   - All 13 export types have deterministic isolated-database fixtures.
   - Entity, period, status, source IDs, transaction linkage, required columns, filters, row counts, reconciliation counts, and financial totals are verified.
-  - Acceptance: export fixture tests validate columns, row counts, filters, and totals.
+  - Every generated report supports full CSV download plus a dedicated landscape Print / Save PDF layout containing all rows, generation metadata, and repeated table headers.
+  - Acceptance: export fixture tests validate columns, row counts, filters, and totals; the frontend production build contains the report print controls and print stylesheet.
 
 - [x] **Account, category, vendor, and preset management**
   - Create, edit, deactivate, and reactivate flows are implemented for all four reference-data types.
@@ -148,7 +149,7 @@ Full operating rules are in `AGENTS.md`.
   - Acceptance: a configured local machine can start the app from the native executable or documented root commands without hidden service controls.
 
 - [x] **Documentation reconciliation**
-  - Product, quick-start, operator, status, limitation, troubleshooting, backup, handoff, and master TODO guidance align with the supported local-use release.
+  - The comprehensive Owner Guide plus product, quick-start, operator, status, limitation, troubleshooting, backup, handoff, and master TODO guidance align with the supported local-use release.
   - Legacy product naming and prohibited hosted-builder branding are absent from content and filenames.
   - Acceptance: documentation search finds no claims contradicted by source or schema.
 
@@ -204,6 +205,15 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-07-19 - Owner instructions, printable exports, and storage-path hardening
+
+- Completed: added a comprehensive owner-first operating guide covering every workspace, normal and shared expenses, corrections, statement reconciliation, monthly close, company retention, evidence, all 13 exports, physical printing, Save to PDF, encrypted backup/restore, off-device copies, troubleshooting, and safety rules.
+- Completed: packaged the 15-page branded guide at `release/Founders Finance Owner Guide.pdf`; visually inspected the rendered cover, contents, workflows, export table, print instructions, backup guidance, troubleshooting, and quick reference; installed Desktop and Start Menu guide shortcuts alongside the application shortcut.
+- Completed: added a dedicated landscape Print / Save PDF action to all 13 generated reports. Screen previews remain bounded for responsiveness while CSV and printed/PDF output include every generated row, report metadata, and repeated table headers.
+- Hardening: anchored relative evidence and backup locations to the repository root during supported production startup, eliminating working-directory-dependent storage placement.
+- Verification: all 32 automated tests, root TypeScript verification, and API/frontend production builds pass; the live app reports ready; production output contains the print control and print stylesheet; owner data remains clean and storage resolves to root `evidence\` and `backups\` directories.
+- Release decision: ready for normal owner use, including CSV export, paper reports, PDF reports, encrypted recovery packages, and the complete operating reference.
 
 ### 2026-07-19 - Native owner launcher and clean-data handoff
 

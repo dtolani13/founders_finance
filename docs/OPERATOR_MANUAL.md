@@ -396,9 +396,9 @@ If you need to correct a record in a closed period, the monthly close screen has
 
 ---
 
-## 15. Exports Explained
+## 15. Exports, Printing, and PDF Reports
 
-All exports are CSV files generated in the browser from live API data.
+All reports are generated in the browser from live API data. Every report can be downloaded as CSV or printed through the Windows print dialog. Selecting **Microsoft Print to PDF** creates a PDF copy.
 
 | Export | What it contains |
 |---|---|
@@ -406,6 +406,8 @@ All exports are CSV files generated in the browser from live API data.
 | Expenses by entity | Business expenses broken down per entity |
 | Expenses by category | Expenses grouped by category code |
 | Owner contributions | All capital contributions and owner loans |
+| Owner draws | Owner distributions linked to posted journals |
+| Company retention | Closed and archived companies and retention dates |
 | Reimbursements | All reimbursement requests and their status |
 | Intercompany balances | All intercompany payables and receivables |
 | Tax reserve activity | All tax reserve transfers and balances |
@@ -414,7 +416,11 @@ All exports are CSV files generated in the browser from live API data.
 | Monthly close summary | Closed periods and their correction memos |
 | Statement reconciliation summary | Statement lines, match status, and linked transactions |
 
-**Filter before exporting** — exports are not paginated server-side. Use the entity and period filters to limit output size.
+**Filter before exporting** - use the entity and period filters to limit output size. The screen preview shows the first 100 rows; CSV and printed/PDF reports include the complete generated result.
+
+To download, generate the report and select **Download CSV**.
+
+To print, generate the report and select **Print / Save PDF**. Choose a physical printer or **Microsoft Print to PDF** in the Windows dialog. Reports use a landscape layout with the report name, generated date, record count, repeated column headers, and all rows.
 
 ---
 

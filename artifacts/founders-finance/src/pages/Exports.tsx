@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Download, FileText } from "lucide-react";
+import { AlertCircle, Download, FileText, Printer } from "lucide-react";
 
 const EXPORT_TYPES: { value: ExportType; label: string; description: string; entityFilter?: boolean; monthFilter?: boolean }[] = [
   { value: "all_transactions", label: "All Transactions", description: "Every transaction across all entities", monthFilter: true },
@@ -43,7 +43,49 @@ const EXPORT_TYPES: { value: ExportType; label: string; description: string; ent
   { value: "statement_reconciliation_summary", label: "Reconciliation Summary", description: "Statement line match status by account", entityFilter: true, monthFilter: true },
 ];
 
-function ExportPreview({ exportType, entityId, periodMonth }: { exportType: ExportType; entityId: string; periodMonth: string }) {
+function ExportTable({ records, limit }: { records: Record<string, unknown>[]; limit?: number }) {
+  const visibleRecords = typeof limit === "number" ? records.slice(0, limit) : records;
+  const headers = Object.keys(records[0]);
+
+  return (
+    <table className="w-full text-xs" data-testid="table-export-preview">
+      <thead>
+        <tr className="bg-muted/50">
+          {headers.map((header) => (
+            <th key={header} className="whitespace-nowrap px-3 py-2 text-left font-medium uppercase tracking-wider text-muted-foreground">
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {visibleRecords.map((row, index) => (
+          <tr key={index} className={`border-t border-border ${index % 2 === 1 ? "bg-muted/10" : ""}`}>
+            {headers.map((header) => (
+              <td key={header} className="whitespace-nowrap px-3 py-1.5 font-mono">
+                {row[header] == null ? "—" : String(row[header])}
+              </td>
+            ))}
+          </tr>
+        ))}
+        {typeof limit === "number" && records.length > limit && (
+          <tr>
+            <td colSpan={headers.length} className="px-3 py-2 text-center text-muted-foreground">
+              Showing first {limit} of {records.length} rows. Download CSV or print for all records.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function ExportPreview({ exportType, exportLabel, entityId, periodMonth }: {
+  exportType: ExportType;
+  exportLabel: string;
+  entityId: string;
+  periodMonth: string;
+}) {
   const params = {
     ...(entityId && { entity_id: entityId }),
     ...(periodMonth && { period_month: periodMonth }),
@@ -83,49 +125,41 @@ function ExportPreview({ exportType, entityId, periodMonth }: { exportType: Expo
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="print-report">
+      <div className="print-export-header">
+        <p className="print-brand">Founders Finance</p>
+        <h1>{exportLabel}</h1>
+        <p>{data.record_count} records · generated {new Date(data.generated_at).toLocaleString()}</p>
+      </div>
+      <CardHeader className="screen-export-header pb-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">{data.record_count} records · generated {new Date(data.generated_at).toLocaleString()}</p>
           </div>
-          <Button size="sm" variant="outline" onClick={downloadCSV} disabled={!data.records?.length} data-testid="button-download-csv">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            Download CSV
-          </Button>
+          <div className="print-controls flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => window.print()} disabled={!data.records?.length} data-testid="button-print-export">
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print / Save PDF
+            </Button>
+            <Button size="sm" variant="outline" onClick={downloadCSV} disabled={!data.records?.length} data-testid="button-download-csv">
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Download CSV
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="print-report-content">
         {!data.records?.length ? (
           <p className="text-sm text-muted-foreground text-center py-8">No records found for this export.</p>
         ) : (
-          <div className="overflow-auto max-h-96 rounded border border-border">
-            <table className="w-full text-xs" data-testid="table-export-preview">
-              <thead>
-                <tr className="bg-muted/50 sticky top-0">
-                  {Object.keys(data.records[0]).map(h => (
-                    <th key={h} className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.records.slice(0, 100).map((row: Record<string, unknown>, i: number) => (
-                  <tr key={i} className={`border-t border-border ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
-                    {Object.values(row).map((v, j) => (
-                      <td key={j} className="px-3 py-1.5 font-mono whitespace-nowrap">{v == null ? "—" : String(v)}</td>
-                    ))}
-                  </tr>
-                ))}
-                {data.records.length > 100 && (
-                  <tr>
-                    <td colSpan={Object.keys(data.records[0]).length} className="px-3 py-2 text-center text-muted-foreground">
-                      Showing first 100 of {data.records.length} rows. Download CSV for all.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="screen-export-preview max-h-96 overflow-auto rounded border border-border">
+              <ExportTable records={data.records as Record<string, unknown>[]} limit={100} />
+            </div>
+            <div className="print-export-preview">
+              <ExportTable records={data.records as Record<string, unknown>[]} />
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
@@ -212,7 +246,12 @@ export default function Exports() {
       )}
 
       {runExport && selectedType && (
-        <ExportPreview exportType={selectedType} entityId={entityId} periodMonth={periodMonth} />
+        <ExportPreview
+          exportType={selectedType}
+          exportLabel={selectedMeta?.label ?? selectedType}
+          entityId={entityId}
+          periodMonth={periodMonth}
+        />
       )}
     </div>
   );

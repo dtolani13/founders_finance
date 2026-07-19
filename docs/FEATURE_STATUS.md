@@ -16,7 +16,7 @@ Last reviewed: 2026-07-19. `MASTER_TODO.md` is authoritative for priority and ac
 | Evidence | Complete | Upload, authenticated preview/download, replacement, archive, integrity states, backup recovery |
 | Monthly close | Complete | Seven-item checklist, close, memo-required reopen, reclose, mutation enforcement |
 | Encrypted backup/restore | Complete | AES-256-GCM packages, auto-verification, clean recovery drill, guarded live restore |
-| Audit and exports | Complete | Read-only audit inspection and 13 traceable export types with deterministic fixtures |
+| Audit, exports, and printing | Complete | Read-only audit inspection; 13 traceable export types with deterministic fixtures; CSV download and full-report print/PDF output |
 | Automated backend tests | Complete for local v1 | 32 tests cover auth, accounting, lifecycle, evidence, statements, exports, audit, backup, and recovery |
 | Critical browser workflows | Complete for local v1 | Isolated pass across setup, companies, expenses, intercompany, statements, evidence, close, backup, responsive, keyboard, and API outage |
 

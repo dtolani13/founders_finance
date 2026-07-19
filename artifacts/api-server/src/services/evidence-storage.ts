@@ -70,7 +70,7 @@ export class EvidenceStorageError extends Error {
 }
 
 function assertSafeRoot(rawRoot: string): string {
-  const root = resolve(rawRoot);
+  const root = resolve(process.env.FOUNDERS_FINANCE_HOME ?? process.cwd(), rawRoot);
   if (root === parse(root).root) {
     throw new EvidenceStorageError("Evidence storage cannot use a filesystem root.", 500, "UNSAFE_EVIDENCE_ROOT");
   }

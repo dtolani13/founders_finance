@@ -256,7 +256,12 @@ async function start(): Promise<void> {
     if (!existsSync(apiEntry) || !existsSync(viteEntry)) fail("Production build output is incomplete.");
     const apiUrl = `http://127.0.0.1:${apiPort}`;
     const webUrl = `http://127.0.0.1:${webPort}`;
-    const commonEnv = { ...process.env, NODE_ENV: "production", APP_ENV: "production" };
+    const commonEnv = {
+      ...process.env,
+      NODE_ENV: "production",
+      APP_ENV: "production",
+      FOUNDERS_FINANCE_HOME: repositoryRoot,
+    };
     api = startNodeProcess(apiEntry, [], resolve(repositoryRoot, "artifacts", "api-server"), apiLogPath, {
       ...commonEnv,
       PORT: String(apiPort),
