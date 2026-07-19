@@ -2,7 +2,7 @@
 
 This is the canonical source of truth for repository priority, completion status, verification evidence, and session handoff.
 
-Last repository alignment review: **2026-07-18**
+Last repository alignment review: **2026-07-19**
 
 ## Status Key
 
@@ -183,7 +183,7 @@ Full operating rules are in `AGENTS.md`.
 
 ## Current Alignment Findings
 
-Verified against the repository on 2026-07-18:
+Repository alignment verified on 2026-07-19; runtime verification evidence below is from the 2026-07-18 release checkpoint unless noted:
 
 - Seven committed migrations cover the baseline, integrity constraints, monthly-close correction memo, reconciliation uniqueness, secure evidence metadata, financial retention, and owner draws. The local database has zero pending migrations.
 - Disposable empty-database and copied-current-database migration paths converge without row loss; the fingerprint includes columns, constraints, and indexes.
@@ -191,18 +191,25 @@ Verified against the repository on 2026-07-18:
 - Posted and voided transaction mutation is blocked. Closed periods reject create/edit/post/void/allocation/reconciliation/settlement/contribution work until an audited correction-memo reopen occurs.
 - Database constraints enforce positive amounts, one-sided journal lines, lifecycle/status ranges, allocation ranges, unique close periods, unique statements, and one reconciliation match per statement line.
 - Thirty-two deterministic authentication, backup, evidence, CSV parsing/import, export, audited-mutation, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement/reversal, and close/reopen tests pass.
-- Frontend workflow and destructive-confirmation tests are still absent.
+- Automated frontend tests are still absent. An isolated browser pass has verified setup, company/category creation, expense entry, transaction detail/audit history, route loading, and cancelable destructive confirmations; the remaining critical interactions are listed in the frozen release work below.
 - Secure evidence upload, preview/download, replacement, archive, integrity checking, and encrypted backup/restore are implemented and tested.
 - Statements and evidence archive; accounts, categories, vendors, and allocation presets deactivate while remaining visible in historical records.
-- Reimbursement paid/waived/converted outcomes and owner draws are balanced, linked, audited, and tested. Intercompany reversal and account selection remain open.
+- Reimbursement paid/waived/converted outcomes, owner draws, and intercompany settlement/reversal are balanced, linked, audited, and tested. Intercompany settlement requires explicit company-owned checking-account selection.
 - Company lifecycle warnings cover balances, obligations, reconciliation, and evidence. The prior account-active-state restoration decision remains open.
-- The audit viewer is implemented; a final mutation-coverage audit remains open.
+- The audit viewer and final mutation-coverage audit are complete; manual statement mutations and tax-rule replacement are transactional, period-aware where applicable, and tested.
 - Statement CSV import supports amount and debit/credit layouts, blocks invalid or duplicate files before writes, imports atomically, and provides confirmation-only account-aware match suggestions.
 - OpenAPI generation is deterministic and TypeScript verification passes across libraries, API, frontend, and scripts.
 - API and frontend production builds pass. Route splitting removed the oversized main-chunk warning; four generated UI sourcemap warnings remain.
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-07-19 - Morning release-status alignment
+
+- Completed: performed the required TODO read, repository pass, TODO reread, and second codebase alignment pass; corrected stale alignment notes that incorrectly listed completed intercompany and mutation-audit work as open.
+- Verification: `main` began clean and synchronized at `37be762`; repository hygiene scan is clean; source confirms no supported production launcher or automated frontend suite yet. The full test command passes after temporarily starting the project PostgreSQL instance. Migration status does not load the repository `.env` automatically, confirming an environment-handling requirement for the operational launcher. PostgreSQL was stopped again; local services on ports 5175, 8081, and 55432 are currently stopped.
+- Remaining frozen release work: finish the remaining critical browser interactions; add supported local startup/readiness/shutdown/recovery commands; run the final build, codegen, migration, encrypted backup/restore, hygiene, live-health, commit, and push gate.
+- Next action: resume the isolated browser pass at statement creation/import and evidence upload.
 
 ### 2026-07-18 - Frozen release gates checkpoint
 
