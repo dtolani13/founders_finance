@@ -29,18 +29,18 @@ import { AlertCircle, Download, FileText } from "lucide-react";
 
 const EXPORT_TYPES: { value: ExportType; label: string; description: string; entityFilter?: boolean; monthFilter?: boolean }[] = [
   { value: "all_transactions", label: "All Transactions", description: "Every transaction across all entities", monthFilter: true },
-  { value: "expenses_by_entity", label: "Expenses by Entity", description: "Allocated expense amounts per entity", entityFilter: true },
-  { value: "expenses_by_category", label: "Expenses by Category", description: "Expense allocations grouped by category", entityFilter: true },
+  { value: "expenses_by_entity", label: "Expenses by Entity", description: "Allocated expense amounts per entity", entityFilter: true, monthFilter: true },
+  { value: "expenses_by_category", label: "Expenses by Category", description: "Expense allocations grouped by category", entityFilter: true, monthFilter: true },
   { value: "owner_contributions", label: "Owner Contributions", description: "Capital contributions and owner loans", entityFilter: true, monthFilter: true },
   { value: "owner_draws", label: "Owner Draws", description: "Owner distributions linked to posted journals", entityFilter: true, monthFilter: true },
   { value: "company_retention", label: "Company Retention", description: "Closed and archived companies with recordkeeping dates" },
   { value: "reimbursements", label: "Reimbursements", description: "All reimbursement requests and status", entityFilter: true },
   { value: "intercompany_balances", label: "Intercompany Balances", description: "Intercompany payables and receivables", entityFilter: true },
-  { value: "tax_reserve_activity", label: "Tax Reserve Activity", description: "Reserve rules and balances", entityFilter: true },
+  { value: "tax_reserve_activity", label: "Tax Reserve Rules", description: "Reserve percentages and rule basis by entity", entityFilter: true },
   { value: "document_index", label: "Document Index", description: "Evidence vault document metadata", entityFilter: true, monthFilter: true },
-  { value: "personal_non_deductible", label: "Personal / Non-Deductible", description: "Personal expenses allocated to founder" },
+  { value: "personal_non_deductible", label: "Personal / Non-Deductible", description: "Personal expenses allocated to founder", monthFilter: true },
   { value: "monthly_close_summary", label: "Monthly Close Summary", description: "Close checklist status per entity/month", entityFilter: true, monthFilter: true },
-  { value: "statement_reconciliation_summary", label: "Reconciliation Summary", description: "Statement line match status by account", monthFilter: true },
+  { value: "statement_reconciliation_summary", label: "Reconciliation Summary", description: "Statement line match status by account", entityFilter: true, monthFilter: true },
 ];
 
 function ExportPreview({ exportType, entityId, periodMonth }: { exportType: ExportType; entityId: string; periodMonth: string }) {

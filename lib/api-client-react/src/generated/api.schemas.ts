@@ -497,6 +497,7 @@ export const IntercompanyLinkStatus = {
 export interface IntercompanyLink {
   id: string;
   source_transaction_id?: string | null;
+  reimbursement_transaction_id?: string | null;
   owing_entity_id: string;
   owing_entity_name?: string | null;
   owing_entity_color?: string | null;
@@ -508,6 +509,24 @@ export interface IntercompanyLink {
   memo?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface IntercompanySettlementBody {
+  payment_date?: string;
+  memo?: string | null;
+  owing_account_id?: string;
+  owed_account_id?: string;
+}
+
+export interface IntercompanyReversalBody {
+  reversal_date?: string;
+  /** @minLength 3 */
+  memo: string;
+}
+
+export interface IntercompanyReversalResult {
+  link: IntercompanyLink;
+  reversal_transaction_id: string;
 }
 
 export interface MarkPaidBody {

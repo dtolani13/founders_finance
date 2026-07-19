@@ -392,6 +392,88 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
           && error.code === "INTERCOMPANY_ALREADY_PROCESSED",
       );
 
+      const [alternateAccountB] = await db.insert(accounts).values({
+        entity_id: companyB.id,
+        name: "Beta Settlement Checking",
+        account_type: "checking",
+        is_active: true,
+      }).returning();
+      const [selectedLink] = await db.insert(intercompany_links).values({
+        owing_entity_id: companyB.id,
+        owed_entity_id: companyA.id,
+        amount: "55.00",
+        status: "open",
+      }).returning();
+      await assert.rejects(
+        operations.settleIntercompanyLink(selectedLink.id, { payment_date: "2026-09-19" }),
+        (error: unknown) => error instanceof operations.FinancialOperationError
+          && error.code === "SETTLEMENT_ACCOUNT_REQUIRED",
+      );
+      await assert.rejects(
+        operations.settleIntercompanyLink(selectedLink.id, {
+          payment_date: "2026-09-19",
+          owing_account_id: accountA.id,
+          owed_account_id: accountA.id,
+        }),
+        (error: unknown) => error instanceof operations.FinancialOperationError
+          && error.code === "INVALID_SETTLEMENT_ACCOUNT",
+      );
+      const selectedSettlement = await operations.settleIntercompanyLink(selectedLink.id, {
+        payment_date: "2026-09-19",
+        memo: "Selected settlement accounts fixture",
+        owing_account_id: alternateAccountB.id,
+        owed_account_id: accountA.id,
+      });
+      assert.equal(selectedSettlement.status, "paid");
+      const selectedSettlementId = selectedSettlement.reimbursement_transaction_id!;
+      const selectedLines = await db.select().from(transaction_lines)
+        .where(eq(transaction_lines.transaction_id, selectedSettlementId));
+      assert.equal(selectedLines.some((line) => line.account_id === alternateAccountB.id), true);
+
+      const reversed = await operations.reverseIntercompanySettlement(selectedLink.id, {
+        reversal_date: "2026-09-20",
+        memo: "Settlement posted from the wrong bank account.",
+      });
+      assert.equal(reversed.link.status, "open");
+      assert.equal(reversed.link.reimbursement_transaction_id, null);
+      const [reversalTransaction] = await db.select().from(transactions)
+        .where(eq(transactions.id, reversed.reversal_transaction_id));
+      assert.equal(reversalTransaction.transaction_type, "intercompany_settlement_reversal");
+      assert.equal(reversalTransaction.source_document_id, selectedSettlementId);
+      const reversalLines = await db.select().from(transaction_lines)
+        .where(eq(transaction_lines.transaction_id, reversalTransaction.id));
+      assert.equal(reversalLines.length, selectedLines.length);
+      assert.equal(reversalLines.reduce((sum, line) => sum + Number(line.debit), 0), 110);
+      assert.equal(reversalLines.reduce((sum, line) => sum + Number(line.credit), 0), 110);
+      for (const originalLine of selectedLines) {
+        assert.equal(reversalLines.some((line) =>
+          line.entity_id === originalLine.entity_id
+          && line.account_id === originalLine.account_id
+          && Number(line.debit) === Number(originalLine.credit)
+          && Number(line.credit) === Number(originalLine.debit)), true);
+      }
+      await assert.rejects(
+        operations.reverseIntercompanySettlement(selectedLink.id, {
+          reversal_date: "2026-09-20",
+          memo: "Duplicate reversal attempt.",
+        }),
+        (error: unknown) => error instanceof operations.FinancialOperationError
+          && error.code === "INTERCOMPANY_NOT_SETTLED",
+      );
+      const reversalAudits = await db.select().from(audit_log)
+        .where(eq(audit_log.record_id, selectedLink.id));
+      assert.equal(reversalAudits.some((audit) => audit.action === "reverse_settlement"), true);
+
+      const resettled = await operations.settleIntercompanyLink(selectedLink.id, {
+        payment_date: "2026-09-21",
+        memo: "Corrected intercompany settlement.",
+        owing_account_id: accountB.id,
+        owed_account_id: accountA.id,
+      });
+      assert.equal(resettled.status, "paid");
+      assert.notEqual(resettled.reimbursement_transaction_id, selectedSettlementId);
+      await db.update(accounts).set({ is_active: false }).where(eq(accounts.id, alternateAccountB.id));
+
       const [reimbursement] = await db.insert(reimbursement_requests).values({
         owed_to_entity_id: companyA.id,
         owed_by_entity_id: companyB.id,
@@ -580,6 +662,29 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(unchangedLink.status, "open");
       assert.equal(unchangedLink.reimbursement_transaction_id, null);
 
+      const [paidForClosedReversal] = await db.insert(intercompany_links).values({
+        owing_entity_id: companyB.id,
+        owed_entity_id: companyA.id,
+        amount: "35.00",
+        status: "open",
+      }).returning();
+      const paidBeforeReversal = await operations.settleIntercompanyLink(paidForClosedReversal.id, {
+        payment_date: "2026-10-18",
+        owing_account_id: accountB.id,
+        owed_account_id: accountA.id,
+      });
+      await assert.rejects(
+        operations.reverseIntercompanySettlement(paidForClosedReversal.id, {
+          reversal_date: "2026-08-18",
+          memo: "Closed-period reversal must fail.",
+        }),
+        (error: unknown) => error instanceof operations.FinancialOperationError && error.code === "PERIOD_CLOSED",
+      );
+      const [stillPaid] = await db.select().from(intercompany_links)
+        .where(eq(intercompany_links.id, paidForClosedReversal.id));
+      assert.equal(stillPaid.status, "paid");
+      assert.equal(stillPaid.reimbursement_transaction_id, paidBeforeReversal.reimbursement_transaction_id);
+
       const [closedReimbursement] = await db.insert(reimbursement_requests).values({
         owed_to_entity_id: companyA.id,
         owed_by_entity_id: companyB.id,
@@ -643,7 +748,7 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(unchangedLine.matched_transaction_id, null);
       assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statement.id))).length, 1);
       const transactionCountAfter = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(transactions);
-      assert.equal(transactionCountAfter[0].count, transactionCountBefore[0].count + 1);
+      assert.equal(transactionCountAfter[0].count, transactionCountBefore[0].count + 2);
     });
 
     await t.test("monthly close requires a complete checklist and an audited correction memo to reopen", async () => {

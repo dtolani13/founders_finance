@@ -2,10 +2,18 @@ import { extname } from "node:path";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { statements, statement_lines, accounts, transactions, transaction_lines, vendors } from "@workspace/db";
-import { and, eq, desc, inArray, isNull } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import multer from "multer";
 import { z } from "zod";
-import { archiveStatement, FinancialOperationError, importStatementLines, matchStatementLine } from "../services/financial-operations";
+import { writeAuditLog } from "../lib/audit";
+import {
+  archiveStatement,
+  FinancialOperationError,
+  importStatementLines,
+  matchStatementLine,
+  requireActiveEntities,
+  requireOpenPeriod,
+} from "../services/financial-operations";
 import {
   inspectStatementCsv,
   MAX_STATEMENT_CSV_BYTES,
@@ -254,18 +262,34 @@ const createStatementSchema = z.object({
 router.post("/", async (req, res) => {
   try {
     const body = createStatementSchema.parse(req.body);
-    const [stmt] = await db.insert(statements).values({
-      account_id: body.account_id,
-      statement_month: body.statement_month,
-      opening_balance: body.opening_balance != null ? String(body.opening_balance) : null,
-      closing_balance: body.closing_balance != null ? String(body.closing_balance) : null,
-      status: "uploaded",
-    }).returning();
-
-    const acctRows = await db.select().from(accounts).where(eq(accounts.id, body.account_id));
-    res.status(201).json({ ...stmt, account_name: acctRows[0]?.name ?? null, line_count: 0, unmatched_count: 0 });
+    const result = await db.transaction(async (tx) => {
+      const acctRows = await tx.select().from(accounts).where(and(
+        eq(accounts.id, body.account_id),
+        eq(accounts.is_active, true),
+      ));
+      const account = acctRows[0];
+      if (!account) throw new FinancialOperationError("An active statement account is required.", 409, "ACCOUNT_INACTIVE");
+      await requireActiveEntities(tx, [account.entity_id]);
+      await requireOpenPeriod(tx, [account.entity_id], body.statement_month);
+      const [statement] = await tx.insert(statements).values({
+        account_id: body.account_id,
+        statement_month: body.statement_month,
+        opening_balance: body.opening_balance != null ? String(body.opening_balance) : null,
+        closing_balance: body.closing_balance != null ? String(body.closing_balance) : null,
+        status: "uploaded",
+      }).returning();
+      await writeAuditLog({
+        tableName: "statements",
+        recordId: statement.id,
+        action: "create",
+        newValue: statement,
+      }, tx);
+      return { statement, account };
+    });
+    res.status(201).json({ ...result.statement, account_name: result.account.name, line_count: 0, unmatched_count: 0 });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof FinancialOperationError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to create statement");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -286,32 +310,40 @@ router.put("/:id", async (req, res) => {
     if (body.status !== undefined) update.status = body.status;
     if (body.notes !== undefined) update.notes = body.notes;
 
-    const existingLineRows = await db.select().from(statement_lines).where(eq(statement_lines.id, id));
-    if (existingLineRows.length) {
-      const parentRows = await db.select().from(statements).where(eq(statements.id, existingLineRows[0].statement_id));
-      if (parentRows[0]?.archived_at) {
-        return res.status(409).json({ error: "Archived statements are read-only." });
+    const line = await db.transaction(async (tx) => {
+      const existingLineRows = await tx.select().from(statement_lines).where(eq(statement_lines.id, id));
+      const existingLine = existingLineRows[0];
+      if (!existingLine) throw new FinancialOperationError("Statement line not found.", 404, "STATEMENT_LINE_NOT_FOUND");
+      const parentRows = await tx.select().from(statements).where(eq(statements.id, existingLine.statement_id));
+      const statement = parentRows[0];
+      if (!statement || statement.archived_at) {
+        throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
       }
+      const accountRows = await tx.select().from(accounts).where(eq(accounts.id, statement.account_id));
+      const account = accountRows[0];
+      if (!account) throw new FinancialOperationError("Statement account not found.", 404, "ACCOUNT_NOT_FOUND");
+      await requireActiveEntities(tx, [account.entity_id]);
+      await requireOpenPeriod(tx, [account.entity_id], statement.statement_month);
       if (body.status === "matched") {
-        return res.status(400).json({ error: "Use the reconciliation action to match a statement line." });
+        throw new FinancialOperationError("Use the reconciliation action to match a statement line.", 400, "MATCH_ACTION_REQUIRED");
       }
-      if (existingLineRows[0].status === "matched" && body.status !== undefined) {
-        return res.status(409).json({ error: "Matched lines require an explicit unmatch workflow." });
+      if (existingLine.status === "matched" && body.status !== undefined) {
+        throw new FinancialOperationError("Matched lines require an explicit unmatch workflow.", 409, "UNMATCH_ACTION_REQUIRED");
       }
-      const [line] = await db.update(statement_lines).set(update).where(eq(statement_lines.id, id)).returning();
-      return res.json(line);
-    }
-
-    const existingStatement = await db.select().from(statements).where(eq(statements.id, id));
-    if (existingStatement[0]?.archived_at) {
-      return res.status(409).json({ error: "Archived statements are read-only." });
-    }
-    const stmtRows = await db.update(statements).set({ ...update, updated_at: new Date() }).where(and(eq(statements.id, id), isNull(statements.archived_at))).returning();
-    if (!stmtRows.length) return res.status(404).json({ error: "Not found" });
-    const acctRows = await db.select().from(accounts).where(eq(accounts.id, stmtRows[0].account_id));
-    res.json({ ...stmtRows[0], account_name: acctRows[0]?.name ?? null });
+      const [updated] = await tx.update(statement_lines).set(update).where(eq(statement_lines.id, id)).returning();
+      await writeAuditLog({
+        tableName: "statement_lines",
+        recordId: updated.id,
+        action: "update",
+        previousValue: existingLine,
+        newValue: updated,
+      }, tx);
+      return updated;
+    });
+    return res.json(line);
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof FinancialOperationError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to update");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -348,13 +380,18 @@ router.post("/:id/lines", async (req, res) => {
   try {
     const { id } = req.params;
     if (!uuidRe.test(id)) return res.status(404).json({ error: "Statement not found" });
-    const stmtRows = await db.select().from(statements).where(eq(statements.id, id));
-    if (!stmtRows.length) return res.status(404).json({ error: "Statement not found" });
-    if (stmtRows[0].archived_at) return res.status(409).json({ error: "Archived statements are read-only." });
-
     const { lines } = addLinesSchema.parse(req.body);
-    await db.insert(statement_lines).values(
-      lines.map(l => ({
+    const result = await db.transaction(async (tx) => {
+      const stmtRows = await tx.select().from(statements).where(eq(statements.id, id));
+      const statement = stmtRows[0];
+      if (!statement) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
+      if (statement.archived_at) throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
+      const acctRows = await tx.select().from(accounts).where(eq(accounts.id, statement.account_id));
+      const account = acctRows[0];
+      if (!account) throw new FinancialOperationError("Statement account not found.", 404, "ACCOUNT_NOT_FOUND");
+      await requireActiveEntities(tx, [account.entity_id]);
+      await requireOpenPeriod(tx, [account.entity_id], statement.statement_month);
+      const inserted = await tx.insert(statement_lines).values(lines.map(l => ({
         statement_id: id,
         transaction_date: l.transaction_date ?? null,
         posted_date: l.posted_date ?? null,
@@ -363,20 +400,29 @@ router.post("/:id/lines", async (req, res) => {
         balance_after: l.balance_after != null ? String(l.balance_after) : null,
         notes: l.notes ?? null,
         status: "unmatched" as const,
-      }))
-    );
-
-    await db.update(statements).set({ status: "reconciling", updated_at: new Date() }).where(eq(statements.id, id));
-    const updatedStmt = await db.select().from(statements).where(eq(statements.id, id));
-    const allLines = await db.select().from(statement_lines).where(eq(statement_lines.statement_id, id));
-    const acctRows = await db.select().from(accounts).where(eq(accounts.id, stmtRows[0].account_id));
+      }))).returning();
+      const [updatedStatement] = await tx.update(statements)
+        .set({ status: "reconciling", updated_at: new Date() })
+        .where(eq(statements.id, id))
+        .returning();
+      await writeAuditLog({
+        tableName: "statements",
+        recordId: id,
+        action: "add_lines",
+        previousValue: statement,
+        newValue: { statement: updatedStatement, lines: inserted },
+      }, tx);
+      const allLines = await tx.select().from(statement_lines).where(eq(statement_lines.statement_id, id));
+      return { statement: updatedStatement, account, lines: allLines };
+    });
 
     res.json({
-      statement: { ...updatedStmt[0], account_name: acctRows[0]?.name ?? null },
-      lines: allLines,
+      statement: { ...result.statement, account_name: result.account.name },
+      lines: result.lines,
     });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues });
+    if (err instanceof FinancialOperationError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
     req.log.error({ err }, "Failed to add statement lines");
     res.status(500).json({ error: "Internal server error" });
   }

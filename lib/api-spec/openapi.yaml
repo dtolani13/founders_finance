@@ -887,7 +887,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MarkPaidBody"
+              $ref: "#/components/schemas/IntercompanySettlementBody"
       responses:
         "200":
           description: Updated intercompany link
@@ -895,6 +895,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IntercompanyLink"
+
+  /intercompany/{id}/reverse:
+    post:
+      operationId: reverseIntercompanySettlement
+      tags: [intercompany]
+      summary: Reverse a paid intercompany settlement with a new posted journal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntercompanyReversalBody"
+      responses:
+        "200":
+          description: Reopened intercompany link and reversal transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntercompanyReversalResult"
 
   /owner-contributions:
     get:
@@ -2830,6 +2856,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        reimbursement_transaction_id:
+          type: string
+          format: uuid
+          nullable: true
         owing_entity_id:
           type: string
           format: uuid
@@ -2874,6 +2904,43 @@ components:
         - status
         - created_at
         - updated_at
+
+    IntercompanySettlementBody:
+      type: object
+      properties:
+        payment_date:
+          type: string
+          format: date
+        memo:
+          type: string
+          nullable: true
+        owing_account_id:
+          type: string
+          format: uuid
+        owed_account_id:
+          type: string
+          format: uuid
+
+    IntercompanyReversalBody:
+      type: object
+      properties:
+        reversal_date:
+          type: string
+          format: date
+        memo:
+          type: string
+          minLength: 3
+      required: [memo]
+
+    IntercompanyReversalResult:
+      type: object
+      properties:
+        link:
+          $ref: "#/components/schemas/IntercompanyLink"
+        reversal_transaction_id:
+          type: string
+          format: uuid
+      required: [link, reversal_transaction_id]
 
     MarkPaidBody:
       type: object

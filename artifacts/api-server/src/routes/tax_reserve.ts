@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { tax_reserve_rules, entities, accounts, transactions } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { writeAuditLog } from "../lib/audit";
 
 const router = Router();
 
@@ -59,18 +60,28 @@ router.post("/rules", async (req, res) => {
     const entityRows = await db.select().from(entities).where(eq(entities.id, body.entity_id));
     if (!entityRows.length) return res.status(400).json({ error: "Entity not found" });
 
-    // Deactivate old rules for this entity
-    await db.update(tax_reserve_rules)
-      .set({ is_active: false, updated_at: new Date() })
-      .where(eq(tax_reserve_rules.entity_id, body.entity_id));
-
-    const [rule] = await db.insert(tax_reserve_rules).values({
-      entity_id: body.entity_id,
-      reserve_percent: String(body.reserve_percent),
-      rule_basis: body.rule_basis,
-      notes: body.notes ?? null,
-      is_active: true,
-    }).returning();
+    const rule = await db.transaction(async (tx) => {
+      const previousRules = await tx.select().from(tax_reserve_rules)
+        .where(eq(tax_reserve_rules.entity_id, body.entity_id));
+      await tx.update(tax_reserve_rules)
+        .set({ is_active: false, updated_at: new Date() })
+        .where(eq(tax_reserve_rules.entity_id, body.entity_id));
+      const [created] = await tx.insert(tax_reserve_rules).values({
+        entity_id: body.entity_id,
+        reserve_percent: String(body.reserve_percent),
+        rule_basis: body.rule_basis,
+        notes: body.notes ?? null,
+        is_active: true,
+      }).returning();
+      await writeAuditLog({
+        tableName: "tax_reserve_rules",
+        recordId: created.id,
+        action: "replace_active_rule",
+        previousValue: previousRules,
+        newValue: created,
+      }, tx);
+      return created;
+    });
 
     res.status(201).json({ ...rule, entity_display_name: entityRows[0].display_name });
   } catch (err) {

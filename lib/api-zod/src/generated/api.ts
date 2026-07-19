@@ -1048,6 +1048,7 @@ export const UpdateAllocationPresetResponse = zod.object({
 export const ListIntercompanyBalancesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "source_transaction_id": zod.string().uuid().nullish(),
+  "reimbursement_transaction_id": zod.string().uuid().nullish(),
   "owing_entity_id": zod.string().uuid(),
   "owing_entity_name": zod.string().nullish(),
   "owing_entity_color": zod.string().nullish(),
@@ -1072,12 +1073,15 @@ export const MarkIntercompanyPaidParams = zod.object({
 
 export const MarkIntercompanyPaidBody = zod.object({
   "payment_date": zod.coerce.date().optional(),
-  "memo": zod.string().nullish()
+  "memo": zod.string().nullish(),
+  "owing_account_id": zod.string().uuid().optional(),
+  "owed_account_id": zod.string().uuid().optional()
 })
 
 export const MarkIntercompanyPaidResponse = zod.object({
   "id": zod.string().uuid(),
   "source_transaction_id": zod.string().uuid().nullish(),
+  "reimbursement_transaction_id": zod.string().uuid().nullish(),
   "owing_entity_id": zod.string().uuid(),
   "owing_entity_name": zod.string().nullish(),
   "owing_entity_color": zod.string().nullish(),
@@ -1089,6 +1093,43 @@ export const MarkIntercompanyPaidResponse = zod.object({
   "memo": zod.string().nullish(),
   "created_at": zod.coerce.date(),
   "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Reverse a paid intercompany settlement with a new posted journal
+ */
+export const ReverseIntercompanySettlementParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const reverseIntercompanySettlementBodyMemoMin = 3;
+
+
+
+export const ReverseIntercompanySettlementBody = zod.object({
+  "reversal_date": zod.coerce.date().optional(),
+  "memo": zod.string().min(reverseIntercompanySettlementBodyMemoMin)
+})
+
+export const ReverseIntercompanySettlementResponse = zod.object({
+  "link": zod.object({
+  "id": zod.string().uuid(),
+  "source_transaction_id": zod.string().uuid().nullish(),
+  "reimbursement_transaction_id": zod.string().uuid().nullish(),
+  "owing_entity_id": zod.string().uuid(),
+  "owing_entity_name": zod.string().nullish(),
+  "owing_entity_color": zod.string().nullish(),
+  "owed_entity_id": zod.string().uuid(),
+  "owed_entity_name": zod.string().nullish(),
+  "owed_entity_color": zod.string().nullish(),
+  "amount": zod.number(),
+  "status": zod.enum(['open', 'partially_paid', 'paid', 'waived']),
+  "memo": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}),
+  "reversal_transaction_id": zod.string().uuid()
 })
 
 

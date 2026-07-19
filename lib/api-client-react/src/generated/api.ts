@@ -63,6 +63,9 @@ import type {
   HealthStatus,
   InspectStatementCsvBody,
   IntercompanyLink,
+  IntercompanyReversalBody,
+  IntercompanyReversalResult,
+  IntercompanySettlementBody,
   ListAccountsParams,
   ListAllocationPresetsParams,
   ListAuditRecordsParams,
@@ -3022,14 +3025,14 @@ export const getMarkIntercompanyPaidUrl = (id: string,) => {
  * @summary Mark intercompany balance as paid
  */
 export const markIntercompanyPaid = async (id: string,
-    markPaidBody: MarkPaidBody, options?: RequestInit): Promise<IntercompanyLink> => {
+    intercompanySettlementBody: IntercompanySettlementBody, options?: RequestInit): Promise<IntercompanyLink> => {
 
   return customFetch<IntercompanyLink>(getMarkIntercompanyPaidUrl(id),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(markPaidBody)
+    body: JSON.stringify(intercompanySettlementBody)
   }
 );}
 
@@ -3037,8 +3040,8 @@ export const markIntercompanyPaid = async (id: string,
 
 
 export const getMarkIntercompanyPaidMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markIntercompanyPaid>>, TError,{id: string;data: BodyType<MarkPaidBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof markIntercompanyPaid>>, TError,{id: string;data: BodyType<MarkPaidBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markIntercompanyPaid>>, TError,{id: string;data: BodyType<IntercompanySettlementBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markIntercompanyPaid>>, TError,{id: string;data: BodyType<IntercompanySettlementBody>}, TContext> => {
 
 const mutationKey = ['markIntercompanyPaid'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -3050,7 +3053,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markIntercompanyPaid>>, {id: string;data: BodyType<MarkPaidBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markIntercompanyPaid>>, {id: string;data: BodyType<IntercompanySettlementBody>}> = (props) => {
           const {id,data} = props ?? {};
 
           return  markIntercompanyPaid(id,data,requestOptions)
@@ -3064,21 +3067,92 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type MarkIntercompanyPaidMutationResult = NonNullable<Awaited<ReturnType<typeof markIntercompanyPaid>>>
-    export type MarkIntercompanyPaidMutationBody = BodyType<MarkPaidBody>
+    export type MarkIntercompanyPaidMutationBody = BodyType<IntercompanySettlementBody>
     export type MarkIntercompanyPaidMutationError = ErrorType<unknown>
 
     /**
  * @summary Mark intercompany balance as paid
  */
 export const useMarkIntercompanyPaid = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markIntercompanyPaid>>, TError,{id: string;data: BodyType<MarkPaidBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markIntercompanyPaid>>, TError,{id: string;data: BodyType<IntercompanySettlementBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof markIntercompanyPaid>>,
         TError,
-        {id: string;data: BodyType<MarkPaidBody>},
+        {id: string;data: BodyType<IntercompanySettlementBody>},
         TContext
       > => {
       return useMutation(getMarkIntercompanyPaidMutationOptions(options));
+    }
+
+export const getReverseIntercompanySettlementUrl = (id: string,) => {
+
+
+
+
+  return `/api/intercompany/${id}/reverse`
+}
+
+/**
+ * @summary Reverse a paid intercompany settlement with a new posted journal
+ */
+export const reverseIntercompanySettlement = async (id: string,
+    intercompanyReversalBody: IntercompanyReversalBody, options?: RequestInit): Promise<IntercompanyReversalResult> => {
+
+  return customFetch<IntercompanyReversalResult>(getReverseIntercompanySettlementUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(intercompanyReversalBody)
+  }
+);}
+
+
+
+
+export const getReverseIntercompanySettlementMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reverseIntercompanySettlement>>, TError,{id: string;data: BodyType<IntercompanyReversalBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reverseIntercompanySettlement>>, TError,{id: string;data: BodyType<IntercompanyReversalBody>}, TContext> => {
+
+const mutationKey = ['reverseIntercompanySettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reverseIntercompanySettlement>>, {id: string;data: BodyType<IntercompanyReversalBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reverseIntercompanySettlement(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReverseIntercompanySettlementMutationResult = NonNullable<Awaited<ReturnType<typeof reverseIntercompanySettlement>>>
+    export type ReverseIntercompanySettlementMutationBody = BodyType<IntercompanyReversalBody>
+    export type ReverseIntercompanySettlementMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reverse a paid intercompany settlement with a new posted journal
+ */
+export const useReverseIntercompanySettlement = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reverseIntercompanySettlement>>, TError,{id: string;data: BodyType<IntercompanyReversalBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reverseIntercompanySettlement>>,
+        TError,
+        {id: string;data: BodyType<IntercompanyReversalBody>},
+        TContext
+      > => {
+      return useMutation(getReverseIntercompanySettlementMutationOptions(options));
     }
 
 export const getListOwnerContributionsUrl = () => {

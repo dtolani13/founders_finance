@@ -61,8 +61,9 @@ Full operating rules are in `AGENTS.md`.
   - Acceptance: forced failures leave no partial records; posted history is immutable; closed months reject unauthorized mutations; every generated journal remains balanced and traceable.
 
 - [~] **Automated accounting and lifecycle test suite**
-  - A root `pnpm test` command covers authentication, encrypted backup primitives, secure evidence, statement CSV parsing/import, expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation/settlement, all reimbursement outcomes, owner contributions/draws, reconciliation, monthly close/reopen, company lifecycle, rollback, idempotency, and audit logging.
-  - Add frontend workflow tests for critical forms and destructive confirmations.
+  - A root `pnpm test` command covers 32 authentication, encrypted backup, secure evidence, statement CSV, export, audited-mutation, accounting, lifecycle, rollback, idempotency, and period-control cases.
+  - An isolated browser pass covers first-run setup, company/default-account creation, reference category creation, balanced expense entry, transaction detail/audit history, and cancelable company-close and transaction-void confirmations.
+  - Complete the remaining statement, evidence, monthly-close, backup, and intercompany browser interactions.
   - Acceptance: tests run from one documented root command and fail on known integrity regressions.
 
 - [x] **Evidence file storage and retrieval**
@@ -89,14 +90,14 @@ Full operating rules are in `AGENTS.md`.
   - Decide whether archived account reactivation should restore all accounts or only accounts active before closure.
   - Acceptance: lifecycle tests cover open balances, statements, evidence, tax rules, and account-state restoration.
 
-- [~] **Persistent audit trail and audit viewer**
+- [x] **Persistent audit trail and audit viewer**
   - Read-only table/action/record/date filtering and before/after inspection are implemented.
-  - Ensure every material mutation writes an audit event.
+  - The mutation inventory found and closed direct-write gaps in manual statement operations and tax-reserve rule replacement; both are now transactional, period-aware where applicable, and covered by isolated-database tests.
   - Acceptance: mutation coverage audit identifies no critical unlogged financial operation.
 
-- [~] **Intercompany settlement accounting**
-  - Marking an intercompany balance paid should create and link a balanced settlement transaction.
-  - Balanced linked settlement journals and duplicate prevention are implemented; add an explicit reversal workflow and settlement-account selector for companies with multiple checking accounts.
+- [x] **Intercompany settlement accounting**
+  - Settlement requires explicit owing/receiving checking-account selection, validates company ownership, and creates a balanced linked journal.
+  - Reversal creates a new balanced posted journal linked to the original, preserves posted history, reopens the obligation atomically, and blocks duplicate or closed-period reversal.
   - Acceptance: both entities' ledger impact and the intercompany link reconcile to zero.
 
 - [x] **Reimbursement completion actions**
@@ -112,10 +113,9 @@ Full operating rules are in `AGENTS.md`.
   - Exact account-amount and nearby-date candidates are ranked, but matching still requires explicit owner confirmation.
   - Acceptance: imported lines reconcile without silent auto-approval or duplicate insertion.
 
-- [~] **Export correctness and accountant handoff**
-  - Verify every export type with deterministic fixtures.
-  - Confirm entity, period, status, source IDs, and audit-relevant fields are present.
-  - Owner draws and company lifecycle/retention reports are implemented.
+- [x] **Export correctness and accountant handoff**
+  - All 13 export types have deterministic isolated-database fixtures.
+  - Entity, period, status, source IDs, transaction linkage, required columns, filters, row counts, reconciliation counts, and financial totals are verified.
   - Acceptance: export fixture tests validate columns, row counts, filters, and totals.
 
 - [~] **Account, category, vendor, and preset management**
@@ -190,7 +190,7 @@ Verified against the repository on 2026-07-18:
 - Expense graphs, transaction updates, line/allocation replacement, posting, voiding, company lifecycle, owner contributions, settlements, reimbursement payment, reconciliation, and monthly close now use transactional services with in-transaction audit writes.
 - Posted and voided transaction mutation is blocked. Closed periods reject create/edit/post/void/allocation/reconciliation/settlement/contribution work until an audited correction-memo reopen occurs.
 - Database constraints enforce positive amounts, one-sided journal lines, lifecycle/status ranges, allocation ranges, unique close periods, unique statements, and one reconciliation match per statement line.
-- Thirty deterministic authentication, backup, evidence, CSV parsing/import, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement, and close/reopen tests pass.
+- Thirty-two deterministic authentication, backup, evidence, CSV parsing/import, export, audited-mutation, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement/reversal, and close/reopen tests pass.
 - Frontend workflow and destructive-confirmation tests are still absent.
 - Secure evidence upload, preview/download, replacement, archive, integrity checking, and encrypted backup/restore are implemented and tested.
 - Statements and evidence archive; accounts, categories, vendors, and allocation presets deactivate while remaining visible in historical records.
@@ -203,6 +203,14 @@ Verified against the repository on 2026-07-18:
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-07-18 - Frozen release gates checkpoint
+
+- Completed: intercompany account selection and immutable audited reversal; traceable fields and deterministic fixtures for all 13 exports; transactional audit coverage and period guards for statement/manual-line and tax-rule mutations.
+- Verification: 32 tests and the full TypeScript pass succeed. An isolated browser/database run verified setup, company/default accounts, category creation, balanced expense entry, transaction detail/audit history, company-close confirmation, transaction-void confirmation, and route loading through statements, evidence, monthly close, exports, backups, and audit.
+- Cleanup: the isolated browser session, temporary services on ports 8181/5275, temporary database, and smoke logs were removed; the real ledger and live 5175/8081 services were not changed by the browser run.
+- Remaining frozen release work: finish the remaining critical browser interactions; add supported local startup/readiness/shutdown/recovery commands; run the final build, codegen, migration, backup/restore, hygiene, live-health, commit, and push gate.
+- Next action: resume release gate three at statement creation/import and evidence upload, then complete monthly-close, backup, and intercompany UI interactions before operational packaging.
 
 ### 2026-07-18 - Secure evidence and daily-use workflow push
 

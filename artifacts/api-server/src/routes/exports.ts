@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  transactions, expense_allocations, owner_contributions, owner_draws, reimbursement_requests,
+  transactions, transaction_lines, expense_allocations, owner_contributions, owner_draws, reimbursement_requests,
   intercompany_links, tax_reserve_rules, documents, entities, categories,
   monthly_close_periods, statements, statement_lines, accounts, vendors
 } from "@workspace/db";
@@ -20,16 +20,34 @@ router.get("/:type", async (req, res) => {
     switch (type) {
       case "all_transactions": {
         const rows = await db.select().from(transactions).orderBy(desc(transactions.transaction_date));
+        const transactionIds = rows.map((row) => row.id);
         const vendorIds = [...new Set(rows.map(r => r.vendor_id).filter(Boolean))] as string[];
         const vendorMap: Record<string, string> = {};
         if (vendorIds.length) {
           const vs = await db.select().from(vendors).where(inArray(vendors.id, vendorIds));
           vs.forEach(v => { vendorMap[v.id] = v.name; });
         }
+        const transactionEntityMap: Record<string, Map<string, string | null>> = {};
+        if (transactionIds.length) {
+          const entityRows = await db.select({
+            transaction_id: transaction_lines.transaction_id,
+            entity_id: transaction_lines.entity_id,
+            entity_short_code: entities.short_code,
+          }).from(transaction_lines)
+            .leftJoin(entities, eq(transaction_lines.entity_id, entities.id))
+            .where(inArray(transaction_lines.transaction_id, transactionIds));
+          for (const row of entityRows) {
+            if (!row.entity_id) continue;
+            transactionEntityMap[row.transaction_id] ??= new Map();
+            transactionEntityMap[row.transaction_id].set(row.entity_id, row.entity_short_code);
+          }
+        }
         records = rows
           .filter(r => !period_month || r.transaction_date?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             id: r.id,
+            entity_ids: [...(transactionEntityMap[r.id]?.keys() ?? [])].join("|"),
+            entity_short_codes: [...(transactionEntityMap[r.id]?.values() ?? [])].filter(Boolean).join("|"),
             date: r.transaction_date,
             type: r.transaction_type,
             description: r.description,
@@ -41,15 +59,23 @@ router.get("/:type", async (req, res) => {
         break;
       }
       case "expenses_by_entity": {
-        const rows = await db.select({
+        const rowsWithTransactions = await db.select({
           alloc: expense_allocations,
           entity_display_name: entities.display_name,
           entity_short_code: entities.short_code,
-        }).from(expense_allocations).leftJoin(entities, eq(expense_allocations.target_entity_id, entities.id));
-        records = rows
+          transaction_date: transactions.transaction_date,
+          transaction_status: transactions.status,
+        }).from(expense_allocations)
+          .leftJoin(entities, eq(expense_allocations.target_entity_id, entities.id))
+          .leftJoin(transactions, eq(expense_allocations.transaction_id, transactions.id));
+        records = rowsWithTransactions
           .filter(r => !entity_id || r.alloc.target_entity_id === entity_id)
+          .filter(r => !period_month || r.transaction_date?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             transaction_id: r.alloc.transaction_id,
+            transaction_date: r.transaction_date,
+            transaction_status: r.transaction_status,
+            entity_id: r.alloc.target_entity_id,
             entity: r.entity_display_name,
             entity_short_code: r.entity_short_code,
             amount: r.alloc.allocation_amount,
@@ -64,16 +90,24 @@ router.get("/:type", async (req, res) => {
           entity_display_name: entities.display_name,
           entity_short_code: entities.short_code,
           category_name: categories.name,
+          transaction_date: transactions.transaction_date,
+          transaction_status: transactions.status,
         })
           .from(expense_allocations)
           .leftJoin(entities, eq(expense_allocations.target_entity_id, entities.id))
-          .leftJoin(categories, eq(expense_allocations.category_id, categories.id));
+          .leftJoin(categories, eq(expense_allocations.category_id, categories.id))
+          .leftJoin(transactions, eq(expense_allocations.transaction_id, transactions.id));
         records = rows
           .filter(r => !entity_id || r.alloc.target_entity_id === entity_id)
+          .filter(r => !period_month || r.transaction_date?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             transaction_id: r.alloc.transaction_id,
+            transaction_date: r.transaction_date,
+            transaction_status: r.transaction_status,
+            entity_id: r.alloc.target_entity_id,
             entity: r.entity_display_name,
             entity_short_code: r.entity_short_code,
+            category_id: r.alloc.category_id,
             category: r.category_name ?? "Uncategorized",
             amount: r.alloc.allocation_amount,
             memo: r.alloc.memo,
@@ -84,13 +118,21 @@ router.get("/:type", async (req, res) => {
         const rows = await db.select({
           contrib: owner_contributions,
           entity_display_name: entities.display_name,
-        }).from(owner_contributions).leftJoin(entities, eq(owner_contributions.entity_id, entities.id));
+          entity_short_code: entities.short_code,
+          transaction_status: transactions.status,
+        }).from(owner_contributions)
+          .leftJoin(entities, eq(owner_contributions.entity_id, entities.id))
+          .leftJoin(transactions, eq(owner_contributions.transaction_id, transactions.id));
         records = rows
           .filter(r => !entity_id || r.contrib.entity_id === entity_id)
           .filter(r => !period_month || r.contrib.contribution_date?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             id: r.contrib.id,
+            transaction_id: r.contrib.transaction_id,
+            transaction_status: r.transaction_status,
+            entity_id: r.contrib.entity_id,
             entity: r.entity_display_name,
+            entity_short_code: r.entity_short_code,
             amount: r.contrib.amount,
             type: r.contrib.contribution_type,
             date: r.contrib.contribution_date,
@@ -99,14 +141,20 @@ router.get("/:type", async (req, res) => {
         break;
       }
       case "owner_draws": {
-        const rows = await db.select({ draw: owner_draws, entity_display_name: entities.display_name, entity_short_code: entities.short_code })
+        const rows = await db.select({
+          draw: owner_draws,
+          entity_display_name: entities.display_name,
+          entity_short_code: entities.short_code,
+          transaction_status: transactions.status,
+        })
           .from(owner_draws)
           .leftJoin(entities, eq(owner_draws.entity_id, entities.id))
+          .leftJoin(transactions, eq(owner_draws.transaction_id, transactions.id))
           .orderBy(desc(owner_draws.draw_date));
         records = rows
           .filter(r => !entity_id || r.draw.entity_id === entity_id)
           .filter(r => !period_month || r.draw.draw_date?.startsWith(period_month.slice(0, 7)))
-          .map(r => ({ id: r.draw.id, transaction_id: r.draw.transaction_id, entity: r.entity_display_name, entity_short_code: r.entity_short_code, amount: r.draw.amount, date: r.draw.draw_date, memo: r.draw.memo }));
+          .map(r => ({ id: r.draw.id, transaction_id: r.draw.transaction_id, transaction_status: r.transaction_status, entity_id: r.draw.entity_id, entity: r.entity_display_name, entity_short_code: r.entity_short_code, amount: r.draw.amount, date: r.draw.draw_date, memo: r.draw.memo }));
         break;
       }
       case "company_retention": {
@@ -142,11 +190,15 @@ router.get("/:type", async (req, res) => {
           .filter(r => !entity_id || r.reimb.owed_to_entity_id === entity_id || r.reimb.owed_by_entity_id === entity_id)
           .map(r => ({
             id: r.reimb.id,
+            original_transaction_id: r.reimb.original_transaction_id,
+            paid_transaction_id: r.reimb.paid_transaction_id,
             amount: r.reimb.amount,
             status: r.reimb.status,
             memo: r.reimb.memo,
+            owed_to_entity_id: r.reimb.owed_to_entity_id,
             owed_to: r.owed_to_name,
             owed_to_short_code: r.owed_to_short_code,
+            owed_by_entity_id: r.reimb.owed_by_entity_id,
             owed_by: r.reimb.owed_by_entity_id ? (owedByMap[r.reimb.owed_by_entity_id]?.name ?? r.reimb.owed_by_entity_id) : null,
             owed_by_short_code: r.reimb.owed_by_entity_id ? (owedByMap[r.reimb.owed_by_entity_id]?.short_code ?? null) : null,
           }));
@@ -170,10 +222,14 @@ router.get("/:type", async (req, res) => {
           .filter(r => !entity_id || r.link.owing_entity_id === entity_id || r.link.owed_entity_id === entity_id)
           .map(r => ({
             id: r.link.id,
+            source_transaction_id: r.link.source_transaction_id,
+            settlement_transaction_id: r.link.reimbursement_transaction_id,
             amount: r.link.amount,
             status: r.link.status,
+            owing_entity_id: r.link.owing_entity_id,
             owing_entity: r.owing_name,
             owing_short_code: r.owing_short_code,
+            owed_entity_id: r.link.owed_entity_id,
             owed_entity: r.link.owed_entity_id ? (owedEntityMap[r.link.owed_entity_id]?.name ?? r.link.owed_entity_id) : null,
             owed_short_code: r.link.owed_entity_id ? (owedEntityMap[r.link.owed_entity_id]?.short_code ?? null) : null,
             memo: r.link.memo,
@@ -184,11 +240,15 @@ router.get("/:type", async (req, res) => {
         const rows = await db.select({
           rule: tax_reserve_rules,
           entity_display_name: entities.display_name,
+          entity_short_code: entities.short_code,
         }).from(tax_reserve_rules).leftJoin(entities, eq(tax_reserve_rules.entity_id, entities.id));
         records = rows
           .filter(r => !entity_id || r.rule.entity_id === entity_id)
           .map(r => ({
+            id: r.rule.id,
+            entity_id: r.rule.entity_id,
             entity: r.entity_display_name,
+            entity_short_code: r.entity_short_code,
             percent: r.rule.reserve_percent,
             basis: r.rule.rule_basis,
             is_active: r.rule.is_active,
@@ -206,13 +266,18 @@ router.get("/:type", async (req, res) => {
           .filter(r => !period_month || r.doc.period_month?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             id: r.doc.id,
+            entity_id: r.doc.entity_id,
+            account_id: r.doc.account_id,
             type: r.doc.document_type,
             file_name: r.doc.file_name,
             entity: r.entity_display_name,
             status: r.doc.evidence_status,
             transaction_id: r.doc.transaction_id,
+            statement_id: r.doc.statement_id,
             period_month: r.doc.period_month,
             description: r.doc.description,
+            file_sha256: r.doc.file_sha256,
+            archived_at: r.doc.archived_at,
           }));
         break;
       }
@@ -222,12 +287,22 @@ router.get("/:type", async (req, res) => {
         const rows = await db.select({
           alloc: expense_allocations,
           entity_display_name: entities.display_name,
-        }).from(expense_allocations).leftJoin(entities, eq(expense_allocations.target_entity_id, entities.id));
+          entity_short_code: entities.short_code,
+          transaction_date: transactions.transaction_date,
+          transaction_status: transactions.status,
+        }).from(expense_allocations)
+          .leftJoin(entities, eq(expense_allocations.target_entity_id, entities.id))
+          .leftJoin(transactions, eq(expense_allocations.transaction_id, transactions.id));
         records = rows
           .filter(r => personalIds.includes(r.alloc.target_entity_id))
+          .filter(r => !period_month || r.transaction_date?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             transaction_id: r.alloc.transaction_id,
+            transaction_date: r.transaction_date,
+            transaction_status: r.transaction_status,
+            entity_id: r.alloc.target_entity_id,
             entity: r.entity_display_name,
+            entity_short_code: r.entity_short_code,
             amount: r.alloc.allocation_amount,
             memo: r.alloc.memo,
           }));
@@ -237,6 +312,7 @@ router.get("/:type", async (req, res) => {
         const rows = await db.select({
           period: monthly_close_periods,
           entity_display_name: entities.display_name,
+          entity_short_code: entities.short_code,
         })
           .from(monthly_close_periods)
           .leftJoin(entities, eq(monthly_close_periods.entity_id, entities.id))
@@ -246,7 +322,9 @@ router.get("/:type", async (req, res) => {
           .filter(r => !period_month || r.period.period_month?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             id: r.period.id,
+            entity_id: r.period.entity_id,
             entity: r.entity_display_name,
+            entity_short_code: r.entity_short_code,
             period_month: r.period.period_month,
             status: r.period.status,
             statements_uploaded: r.period.all_statements_uploaded,
@@ -264,6 +342,7 @@ router.get("/:type", async (req, res) => {
         const stmtRows = await db.select({
           stmt: statements,
           account_name: accounts.name,
+          entity_id: accounts.entity_id,
         })
           .from(statements)
           .leftJoin(accounts, eq(statements.account_id, accounts.id))
@@ -283,9 +362,12 @@ router.get("/:type", async (req, res) => {
         }
 
         records = stmtRows
+          .filter(r => !entity_id || r.entity_id === entity_id)
           .filter(r => !period_month || r.stmt.statement_month?.startsWith(period_month.slice(0, 7)))
           .map(r => ({
             id: r.stmt.id,
+            account_id: r.stmt.account_id,
+            entity_id: r.entity_id,
             account: r.account_name,
             month: r.stmt.statement_month,
             status: r.stmt.status,

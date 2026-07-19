@@ -49,7 +49,7 @@ function amountString(value: number | string): string {
   return (Math.round(amount * 100) / 100).toFixed(2);
 }
 
-async function requireActiveEntities(tx: DbTransaction, entityIds: string[]) {
+export async function requireActiveEntities(tx: DbTransaction, entityIds: string[]) {
   const ids = [...new Set(entityIds)];
   const rows = await tx.select().from(entities).where(inArray(entities.id, ids));
   if (rows.length !== ids.length) {
@@ -61,7 +61,7 @@ async function requireActiveEntities(tx: DbTransaction, entityIds: string[]) {
   return rows;
 }
 
-async function requireOpenPeriod(tx: DbTransaction, entityIds: string[], operationDate: string) {
+export async function requireOpenPeriod(tx: DbTransaction, entityIds: string[], operationDate: string) {
   const closed = await tx.select({ id: monthly_close_periods.id }).from(monthly_close_periods).where(and(
     inArray(monthly_close_periods.entity_id, [...new Set(entityIds)]),
     eq(monthly_close_periods.status, "closed"),
@@ -76,17 +76,20 @@ async function requireOpenPeriod(tx: DbTransaction, entityIds: string[], operati
   }
 }
 
-async function requireCheckingAccount(tx: DbTransaction, entityId: string) {
+async function requireCheckingAccount(tx: DbTransaction, entityId: string, accountId?: string) {
   const rows = await tx.select().from(accounts).where(and(
     eq(accounts.entity_id, entityId),
     eq(accounts.is_active, true),
     eq(accounts.account_type, "checking"),
+    accountId ? eq(accounts.id, accountId) : undefined,
   ));
   if (!rows.length) {
     throw new FinancialOperationError(
-      "An active checking account is required before recording this operation.",
+      accountId
+        ? "The selected settlement account is not an active checking account for this company."
+        : "An active checking account is required before recording this operation.",
       409,
-      "CHECKING_ACCOUNT_REQUIRED",
+      accountId ? "INVALID_SETTLEMENT_ACCOUNT" : "CHECKING_ACCOUNT_REQUIRED",
     );
   }
   if (rows.length > 1) {
@@ -165,7 +168,12 @@ async function createSettlementJournal(
 
 export async function settleIntercompanyLink(
   linkId: string,
-  input: { payment_date?: string; memo?: string | null } = {},
+  input: {
+    payment_date?: string;
+    memo?: string | null;
+    owing_account_id?: string;
+    owed_account_id?: string;
+  } = {},
 ) {
   return db.transaction(async (tx) => {
     const rows = await tx.select().from(intercompany_links).where(eq(intercompany_links.id, linkId));
@@ -177,8 +185,8 @@ export async function settleIntercompanyLink(
     const operationDate = validDate(input.payment_date ?? today(), "Payment date");
     await requireActiveEntities(tx, [link.owing_entity_id, link.owed_entity_id]);
     await requireOpenPeriod(tx, [link.owing_entity_id, link.owed_entity_id], operationDate);
-    const owingAccount = await requireCheckingAccount(tx, link.owing_entity_id);
-    const owedAccount = await requireCheckingAccount(tx, link.owed_entity_id);
+    const owingAccount = await requireCheckingAccount(tx, link.owing_entity_id, input.owing_account_id);
+    const owedAccount = await requireCheckingAccount(tx, link.owed_entity_id, input.owed_account_id);
     const transaction = await createSettlementJournal(tx, {
       operationDate,
       amount: amountString(link.amount),
@@ -207,6 +215,106 @@ export async function settleIntercompanyLink(
       memo: input.memo ?? "Intercompany balance paid.",
     }, tx);
     return updated[0];
+  });
+}
+
+export async function reverseIntercompanySettlement(
+  linkId: string,
+  input: { reversal_date?: string; memo: string },
+) {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(intercompany_links).where(eq(intercompany_links.id, linkId));
+    const link = rows[0];
+    if (!link) throw new FinancialOperationError("Intercompany link not found.", 404, "INTERCOMPANY_NOT_FOUND");
+    if (link.status !== "paid" || !link.reimbursement_transaction_id) {
+      throw new FinancialOperationError(
+        "Only a paid intercompany settlement can be reversed.",
+        409,
+        "INTERCOMPANY_NOT_SETTLED",
+      );
+    }
+
+    const operationDate = validDate(input.reversal_date ?? today(), "Reversal date");
+    const memo = input.memo.trim();
+    if (memo.length < 3) {
+      throw new FinancialOperationError("A reversal explanation is required.", 400, "REVERSAL_MEMO_REQUIRED");
+    }
+    await requireActiveEntities(tx, [link.owing_entity_id, link.owed_entity_id]);
+    await requireOpenPeriod(tx, [link.owing_entity_id, link.owed_entity_id], operationDate);
+
+    const originalRows = await tx.select().from(transactions)
+      .where(eq(transactions.id, link.reimbursement_transaction_id));
+    const original = originalRows[0];
+    if (!original || original.status !== "posted" || original.transaction_type !== "intercompany_settlement") {
+      throw new FinancialOperationError(
+        "The original posted settlement transaction could not be verified.",
+        409,
+        "SETTLEMENT_TRANSACTION_INVALID",
+      );
+    }
+    const originalLines = await tx.select().from(transaction_lines)
+      .where(eq(transaction_lines.transaction_id, original.id));
+    if (!originalLines.length) {
+      throw new FinancialOperationError(
+        "The original settlement has no journal lines to reverse.",
+        409,
+        "SETTLEMENT_LINES_MISSING",
+      );
+    }
+
+    const [reversal] = await tx.insert(transactions).values({
+      transaction_date: operationDate,
+      transaction_type: "intercompany_settlement_reversal",
+      description: "Intercompany settlement reversal",
+      business_purpose: memo,
+      source_document_id: original.id,
+      total_amount: amountString(link.amount),
+      status: "posted",
+      is_balanced: true,
+    }).returning();
+    const reversalLines = await tx.insert(transaction_lines).values(originalLines.map((line) => ({
+      transaction_id: reversal.id,
+      entity_id: line.entity_id,
+      account_id: line.account_id,
+      category_id: line.category_id,
+      debit: line.credit,
+      credit: line.debit,
+      memo: line.memo ? `Reversal: ${line.memo}` : "Settlement reversal",
+    }))).returning();
+
+    await writeAuditLog({
+      tableName: "transactions",
+      recordId: reversal.id,
+      action: "post_settlement_reversal",
+      newValue: { transaction: reversal, lines: reversalLines, reverses_transaction_id: original.id },
+      memo,
+    }, tx);
+
+    const updated = await tx.update(intercompany_links).set({
+      status: "open",
+      reimbursement_transaction_id: null,
+      updated_at: new Date(),
+    }).where(and(
+      eq(intercompany_links.id, linkId),
+      eq(intercompany_links.status, "paid"),
+      eq(intercompany_links.reimbursement_transaction_id, original.id),
+    )).returning();
+    if (!updated.length) {
+      throw new FinancialOperationError(
+        "This intercompany settlement was changed by another request.",
+        409,
+        "INTERCOMPANY_REVERSAL_CONFLICT",
+      );
+    }
+    await writeAuditLog({
+      tableName: "intercompany_links",
+      recordId: linkId,
+      action: "reverse_settlement",
+      previousValue: link,
+      newValue: { ...updated[0], reversal_transaction_id: reversal.id, reversed_transaction_id: original.id },
+      memo,
+    }, tx);
+    return { link: updated[0], reversal_transaction_id: reversal.id };
   });
 }
 

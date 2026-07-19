@@ -4,22 +4,18 @@ Updated: 2026-07-18. Use `MASTER_TODO.md` for authoritative status and acceptanc
 
 ## Immediate Work Package
 
-Complete intercompany settlement controls:
+Finish the frozen local-v1 release gates:
 
-1. Add explicit owing and receiving cash-account selectors.
-2. Add a dedicated balanced reversal journal without editing the original posted settlement.
-3. Reopen the obligation atomically after a successful reversal.
-4. Test account ownership, multiple-account behavior, duplicate reversal, closed periods, balance, rollback, and audit history.
+1. Resume the isolated browser pass at statement creation/import and evidence upload.
+2. Complete monthly-close, backup, and intercompany settlement/reversal UI interactions.
+3. Add supported local startup, readiness, shutdown, and recovery commands.
+4. Run the final production build, deterministic codegen, migration, encrypted backup/restore, repository-hygiene, and live-health gate.
 
 ## Queue After Import
 
-1. Deterministic fixtures for every export and accountant-handoff validation.
-2. Critical frontend form/dialog workflow tests.
-3. Automated accessibility and manual keyboard checks.
-4. Supported local production launcher with environment/database readiness checks.
-5. Standardized API-down, offline, retry, and mutation recovery UX.
-6. Final audit-mutation and reference-dependency coverage.
-7. Authenticated responsive screenshot pass at desktop, tablet, and mobile widths.
+1. Broader accessibility and responsive verification after local-v1 release.
+2. Standardized noncritical offline/retry polish after local-v1 release.
+3. Broader reference-data dependency warnings.
 
 ## Keep Out Of Scope
 

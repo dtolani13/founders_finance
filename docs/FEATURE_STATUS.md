@@ -12,8 +12,8 @@ Last reviewed: 2026-07-18. `MASTER_TODO.md` is authoritative for priority and ac
 | Encrypted backup/restore | Complete | AES-256-GCM packages, verification, clean recovery drill, guarded live restore |
 | Evidence storage | Complete | Secure upload, preview/download, replacement, archive, checksums, backup recovery |
 | Retention policy | Complete | Transactions void; statements/evidence archive; companies archive; reference data deactivates |
-| Automated backend tests | Substantial | 25 auth, backup, evidence, accounting, lifecycle, and period-control tests |
-| Frontend workflow tests | Not started | Critical forms and destructive confirmations need browser automation |
+| Automated backend tests | Complete for local v1 | 32 auth, backup, evidence, export, audit, accounting, lifecycle, and period-control tests |
+| Frontend workflow tests | In progress | Isolated setup/company/category/expense/detail/confirmation pass complete; remaining critical interactions are in the handoff |
 
 ## Daily Financial Workflows
 
@@ -22,7 +22,7 @@ Last reviewed: 2026-07-18. `MASTER_TODO.md` is authoritative for priority and ac
 | Company management | Complete | Create, edit, close, archive, retention metadata, reopen, closure warnings |
 | Expense entry and allocation | Complete | Entity/account/category/vendor selection, presets, intercompany generation |
 | Transaction list/detail | Complete | Filters, lines, allocations, evidence, audit history, balance/posting state, void |
-| Intercompany settlement | Partial | Balanced linked payment exists; reversal and account selection remain |
+| Intercompany settlement | Complete | Explicit cash-account selection plus balanced, linked, immutable reversal |
 | Owner contributions | Complete | Capital and loan contribution journals |
 | Owner draws | Complete | Balanced posted journals, history, totals, export |
 | Reimbursements | Complete | Pay, waive, and convert-to-contribution outcomes |
@@ -31,7 +31,7 @@ Last reviewed: 2026-07-18. `MASTER_TODO.md` is authoritative for priority and ac
 | Statements | Complete | Create, manual lines, bounded mapped CSV import, duplicate controls, suggested/manual reconciliation, archive |
 | Monthly close | Complete | Checklist, close, correction-memo reopen, closed-period enforcement |
 | Audit viewer | Complete | Read-only filters and before/after inspection |
-| Exports | Substantial | Ledger, entity/category, equity, reimbursement, intercompany, evidence, close, reconciliation, owner draw, retention |
+| Exports | Complete | All 13 types verified for traceability, filters, columns, counts, and totals |
 | Reference data | Substantial | Account/category/vendor/preset create, edit, deactivate, reactivate; broader dependency warnings remain |
 
 ## Product Quality
@@ -47,6 +47,6 @@ Last reviewed: 2026-07-18. `MASTER_TODO.md` is authoritative for priority and ac
 
 ## Immediate Build Order
 
-1. Intercompany reversal and settlement-account selection.
-2. Export fixtures and critical frontend workflow tests.
-3. Accessibility, packaging, error recovery, and final authenticated responsive verification.
+1. Finish the remaining frozen critical browser interactions.
+2. Add supported local startup, readiness, shutdown, and recovery commands.
+3. Run the final release gate and verified external-backup drill.
