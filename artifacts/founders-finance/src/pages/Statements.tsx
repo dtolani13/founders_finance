@@ -9,7 +9,7 @@ import {
   useAddStatementLines,
   useMatchStatementLine,
   useUpdateStatementLine,
-  useDeleteStatement,
+  useArchiveStatement,
   useListTransactions, getListTransactionsQueryKey,
   useListAccounts, getListAccountsQueryKey,
 } from "@workspace/api-client-react";
@@ -24,7 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { AlertCircle, FileText, Plus, ChevronDown, ChevronRight, CheckCircle, Link2, X, Minus } from "lucide-react";
+import { AlertCircle, Archive, FileText, Plus, ChevronDown, ChevronRight, CheckCircle, Link2, Minus, X } from "lucide-react";
 import type { StatementLine, Transaction } from "@workspace/api-client-react";
 
 const STATUS_CLASS: Record<string, string> = {
@@ -204,6 +204,7 @@ function StatementDetail({ statementId, onRefreshList }: { statementId: string; 
   );
 
   const { statement, lines } = data;
+  const isArchived = Boolean(statement.archived_at);
   const unmatched = lines.filter(l => l.status === "unmatched").length;
   const matched = lines.filter(l => l.status === "matched").length;
 
@@ -215,9 +216,13 @@ function StatementDetail({ statementId, onRefreshList }: { statementId: string; 
           <span className="text-green-600">{matched} matched</span>
           {unmatched > 0 && <span className="text-red-600">{unmatched} unmatched</span>}
         </div>
-        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddLine(!showAddLine)}>
-          <Plus className="w-3 h-3 mr-1" />Add Line
-        </Button>
+        {isArchived ? (
+          <Badge variant="outline">Archived read-only record</Badge>
+        ) : (
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddLine(!showAddLine)}>
+            <Plus className="w-3 h-3 mr-1" />Add Line
+          </Button>
+        )}
       </div>
 
       {showAddLine && (
@@ -300,6 +305,8 @@ function StatementDetail({ statementId, onRefreshList }: { statementId: string; 
                   </td>
                   <td className="px-2 py-2">
                     <div className="flex gap-1 justify-end">
+                      {!isArchived && (
+                        <>
                       {line.status === "unmatched" && (
                         <>
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setMatchingLine(line)}>
@@ -315,6 +322,8 @@ function StatementDetail({ statementId, onRefreshList }: { statementId: string; 
                           Unmatch
                         </Button>
                       )}
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -325,7 +334,9 @@ function StatementDetail({ statementId, onRefreshList }: { statementId: string; 
       )}
 
       {lines.length === 0 && !showAddLine && (
-        <p className="text-xs text-muted-foreground text-center py-4">No lines yet. Click "Add Line" to begin reconciliation.</p>
+        <p className="text-xs text-muted-foreground text-center py-4">
+          {isArchived ? "No statement lines were recorded." : 'No lines yet. Click "Add Line" to begin reconciliation.'}
+        </p>
       )}
 
       {matchingLine && (
@@ -349,9 +360,13 @@ export default function Statements() {
   const [showForm, setShowForm] = useState(false);
   const [accountFilter, setAccountFilter] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
-  const params = accountFilter ? { account_id: accountFilter } : {};
+  const params = {
+    ...(accountFilter ? { account_id: accountFilter } : {}),
+    ...(showArchived ? { include_archived: true } : {}),
+  };
   const { data: statements, isLoading, error } = useListStatements(params, {
     query: { queryKey: getListStatementsQueryKey(params) }
   });
@@ -380,18 +395,18 @@ export default function Statements() {
     }
   });
 
-  const deleteStatement = useDeleteStatement({
+  const archiveStatement = useArchiveStatement({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListStatementsQueryKey() });
-        toast({ title: "Statement deleted" });
+        toast({ title: "Statement archived", description: "Its lines and reconciliation history were retained." });
         setExpandedId(null);
-        setDeleteConfirmId(null);
+        setArchiveConfirmId(null);
       },
       onError: (err: unknown) => {
         const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        toast({ title: msg ?? "Failed to delete statement", variant: "destructive" });
-        setDeleteConfirmId(null);
+        toast({ title: msg ?? "Failed to archive statement", variant: "destructive" });
+        setArchiveConfirmId(null);
       },
     }
   });
@@ -510,6 +525,9 @@ export default function Statements() {
           </SelectContent>
         </Select>
         {accountFilter && <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setAccountFilter("")}>Clear</Button>}
+        <Button variant={showArchived ? "secondary" : "outline"} size="sm" className="h-8" onClick={() => setShowArchived((value) => !value)}>
+          <Archive className="w-3.5 h-3.5 mr-1.5" />{showArchived ? "Hide Archive" : "Show Archive"}
+        </Button>
       </div>
 
       {error && (
@@ -571,15 +589,17 @@ export default function Statements() {
                       <p className="text-xs text-muted-foreground">Close</p>
                       <p>{stmt.closing_balance != null ? formatCurrency(stmt.closing_balance) : "—"}</p>
                     </div>
-                    {deleteConfirmId === stmt.id ? (
+                    {stmt.archived_at ? (
+                      <Badge variant="outline">Archived</Badge>
+                    ) : archiveConfirmId === stmt.id ? (
                       <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                        <span className="text-xs text-destructive font-medium whitespace-nowrap">Delete?</span>
+                        <span className="text-xs font-medium whitespace-nowrap">Archive?</span>
                         <Button
-                          variant="destructive"
+                          variant="secondary"
                           size="sm"
                           className="h-6 text-xs px-2"
-                          disabled={deleteStatement.isPending}
-                          onClick={() => deleteStatement.mutate({ id: stmt.id })}
+                          disabled={archiveStatement.isPending}
+                          onClick={() => archiveStatement.mutate({ id: stmt.id })}
                         >
                           Yes
                         </Button>
@@ -587,7 +607,7 @@ export default function Statements() {
                           variant="ghost"
                           size="sm"
                           className="h-6 text-xs px-2"
-                          onClick={() => setDeleteConfirmId(null)}
+                          onClick={() => setArchiveConfirmId(null)}
                         >
                           No
                         </Button>
@@ -596,11 +616,11 @@ export default function Statements() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => setDeleteConfirmId(stmt.id)}
-                        title="Delete statement"
+                        className="h-7 w-7 p-0 text-muted-foreground"
+                        onClick={() => setArchiveConfirmId(stmt.id)}
+                        title="Archive statement"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <Archive className="w-3.5 h-3.5" />
                       </Button>
                     )}
                   </div>

@@ -10,7 +10,7 @@ import { formatCurrency, formatPercent } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 
 export default function Allocations() {
-  const { data: presets, isLoading: presetsLoading, error: presetsError } = useListAllocationPresets({
+  const { data: presets, isLoading: presetsLoading, error: presetsError } = useListAllocationPresets(undefined, {
     query: { queryKey: getListAllocationPresetsQueryKey() }
   });
 

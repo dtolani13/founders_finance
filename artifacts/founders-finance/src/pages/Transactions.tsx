@@ -202,7 +202,7 @@ export default function Transactions() {
                     {formatDate(tx.transaction_date)}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-foreground leading-tight">{tx.description}</div>
+                    <Link href={`/transactions/${tx.id}`} className="font-medium text-foreground leading-tight hover:text-sky-400">{tx.description}</Link>
                     {tx.vendor_name && <div className="text-xs text-muted-foreground mt-0.5">{tx.vendor_name}</div>}
                   </td>
                   <td className="px-4 py-3">

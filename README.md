@@ -59,8 +59,8 @@ Both services are managed by local dev scripts and start automatically. To resta
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `SESSION_SECRET` | Yes | Express session signing secret |
 | `PORT` | Required | HTTP port used by the API service |
+| `EVIDENCE_STORAGE_ROOT` | Yes | Writable evidence directory outside the public web root |
 
 ## Key Commands
 
@@ -107,9 +107,10 @@ This is a private single-user financial tool. The following controls are in plac
 | Git hygiene | `.env`, `evidence/`, `db-dumps/`, `*.dump` are all excluded via `.gitignore` |
 | Transaction deletes | Soft-delete only — `DELETE /transactions/:id` voids the record (`status="voided"`), never destroys data |
 | Posted transactions | Cannot be voided without an explicit `/void` call; 409 returned on attempt |
-| Statement deletes | Blocked with 409 if any matched lines exist — reconciliation work is protected |
+| Statement lifecycle | Archive-only — statement lines and reconciliation matches remain intact |
 | Closed period edits | Ledger mutations are blocked until the period is explicitly reopened with a correction memo |
-| File path inputs | Sanitized on write — `../` path traversal sequences are stripped from `file_path` fields |
+| Evidence files | Authenticated streaming access, server-generated paths, signature/type/size checks, SHA-256 integrity, archive retention |
+| Backups | Encrypted database-plus-evidence package with automatic verification and recovery drill |
 | Personal expenses | UI warns on every PERSONAL entity allocation (non-deductible flag) |
 
 For backup procedures, see [docs/BACKUP_AND_RESTORE.md](docs/BACKUP_AND_RESTORE.md).  

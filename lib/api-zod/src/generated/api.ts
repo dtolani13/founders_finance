@@ -222,6 +222,29 @@ export const CloseEntityResponse = zod.object({
 
 
 /**
+ * @summary Inspect balances and unresolved records before closing a company
+ */
+export const GetEntityClosureAssessmentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetEntityClosureAssessmentResponse = zod.object({
+  "company_id": zod.string().uuid(),
+  "can_close": zod.boolean(),
+  "warnings": zod.array(zod.string()),
+  "nonzero_accounts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "balance": zod.number()
+})),
+  "open_intercompany_count": zod.number(),
+  "open_reimbursement_count": zod.number(),
+  "unreconciled_line_count": zod.number(),
+  "evidence_issue_count": zod.number()
+})
+
+
+/**
  * @summary Archive entity for recordkeeping
  */
 export const ArchiveEntityParams = zod.object({
@@ -288,7 +311,8 @@ export const ReopenEntityResponse = zod.object({
  * @summary List accounts
  */
 export const ListAccountsQueryParams = zod.object({
-  "entity_id": zod.coerce.string().uuid().optional()
+  "entity_id": zod.coerce.string().uuid().optional(),
+  "include_inactive": zod.coerce.boolean().optional()
 })
 
 export const ListAccountsResponseItem = zod.object({
@@ -306,6 +330,25 @@ export const ListAccountsResponseItem = zod.object({
   "updated_at": zod.coerce.date()
 })
 export const ListAccountsResponse = zod.array(ListAccountsResponseItem)
+
+
+/**
+ * @summary Create a company account
+ */
+export const createAccountBodyLastFourRegExp = new RegExp('^[0-9]{4}$');
+
+
+export const CreateAccountBody = zod.object({
+  "entity_id": zod.string().uuid(),
+  "name": zod.string(),
+  "account_type": zod.enum(['checking', 'savings', 'credit_card', 'cash', 'loan', 'other']),
+  "institution_name": zod.string().nullish(),
+  "last_four": zod.string().regex(createAccountBodyLastFourRegExp).nullish(),
+  "opening_balance": zod.number().optional(),
+  "is_tax_reserve": zod.boolean().optional()
+})
+
+export const CreateAccountResponse = zod.void()
 
 
 /**
@@ -332,8 +375,47 @@ export const GetAccountResponse = zod.object({
 
 
 /**
+ * @summary Edit, deactivate, or reactivate an account
+ */
+export const UpdateAccountParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateAccountBodyLastFourRegExp = new RegExp('^[0-9]{4}$');
+
+
+export const UpdateAccountBody = zod.object({
+  "name": zod.string().optional(),
+  "account_type": zod.enum(['checking', 'savings', 'credit_card', 'cash', 'loan', 'other']).optional(),
+  "institution_name": zod.string().nullish(),
+  "last_four": zod.string().regex(updateAccountBodyLastFourRegExp).nullish(),
+  "is_tax_reserve": zod.boolean().optional(),
+  "is_active": zod.boolean().optional()
+})
+
+export const UpdateAccountResponse = zod.object({
+  "id": zod.string().uuid(),
+  "entity_id": zod.string().uuid().nullish(),
+  "name": zod.string(),
+  "account_type": zod.string(),
+  "institution_name": zod.string().nullish(),
+  "last_four": zod.string().nullish(),
+  "opening_balance": zod.number(),
+  "current_balance": zod.number(),
+  "is_tax_reserve": zod.boolean(),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
  * @summary List categories
  */
+export const ListCategoriesQueryParams = zod.object({
+  "include_inactive": zod.coerce.boolean().optional()
+})
+
 export const ListCategoriesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
@@ -345,13 +427,53 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
 
 /**
+ * @summary Create a category
+ */
+export const CreateCategoryBody = zod.object({
+  "name": zod.string(),
+  "category_type": zod.enum(['expense', 'income', 'asset', 'liability', 'equity', 'other']),
+  "description": zod.string().nullish()
+})
+
+export const CreateCategoryResponse = zod.void()
+
+
+/**
+ * @summary Edit, deactivate, or reactivate a category
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UpdateCategoryBody = zod.object({
+  "name": zod.string().optional(),
+  "category_type": zod.enum(['expense', 'income', 'asset', 'liability', 'equity', 'other']).optional(),
+  "description": zod.string().nullish(),
+  "is_active": zod.boolean().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "category_type": zod.string(),
+  "description": zod.string().nullish(),
+  "is_active": zod.boolean()
+})
+
+
+/**
  * @summary List vendors
  */
+export const ListVendorsQueryParams = zod.object({
+  "include_inactive": zod.coerce.boolean().optional()
+})
+
 export const ListVendorsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "default_category_id": zod.string().uuid().nullish(),
   "notes": zod.string().nullish(),
+  "is_active": zod.boolean(),
   "created_at": zod.coerce.date(),
   "updated_at": zod.coerce.date()
 })
@@ -368,6 +490,31 @@ export const CreateVendorBody = zod.object({
 })
 
 export const CreateVendorResponse = zod.void()
+
+
+/**
+ * @summary Edit, deactivate, or reactivate a vendor
+ */
+export const UpdateVendorParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UpdateVendorBody = zod.object({
+  "name": zod.string().optional(),
+  "default_category_id": zod.string().uuid().nullish(),
+  "notes": zod.string().nullish(),
+  "is_active": zod.boolean().optional()
+})
+
+export const UpdateVendorResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "default_category_id": zod.string().uuid().nullish(),
+  "notes": zod.string().nullish(),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
 
 
 /**
@@ -465,6 +612,36 @@ export const GetTransactionResponse = zod.object({
   "allocation_amount": zod.number(),
   "memo": zod.string().nullish(),
   "creates_intercompany_balance": zod.boolean(),
+  "created_at": zod.coerce.date()
+})),
+  "evidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
+  "file_name": zod.string().nullish(),
+  "mime_type": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "file_sha256": zod.string().nullish(),
+  "has_file": zod.boolean(),
+  "entity_id": zod.string().uuid().nullish(),
+  "entity_display_name": zod.string().nullish(),
+  "account_id": zod.string().uuid().nullish(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
+  "period_month": zod.coerce.date().nullish(),
+  "description": zod.string().nullish(),
+  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review', 'archived']),
+  "uploaded_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
+})),
+  "audit": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "table_name": zod.string(),
+  "record_id": zod.string().uuid().nullish(),
+  "action": zod.string(),
+  "previous_value": zod.string().nullish(),
+  "new_value": zod.string().nullish(),
+  "memo": zod.string().nullish(),
   "created_at": zod.coerce.date()
 }))
 })
@@ -566,6 +743,36 @@ export const AddTransactionLinesResponse = zod.object({
   "memo": zod.string().nullish(),
   "creates_intercompany_balance": zod.boolean(),
   "created_at": zod.coerce.date()
+})),
+  "evidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
+  "file_name": zod.string().nullish(),
+  "mime_type": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "file_sha256": zod.string().nullish(),
+  "has_file": zod.boolean(),
+  "entity_id": zod.string().uuid().nullish(),
+  "entity_display_name": zod.string().nullish(),
+  "account_id": zod.string().uuid().nullish(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
+  "period_month": zod.coerce.date().nullish(),
+  "description": zod.string().nullish(),
+  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review', 'archived']),
+  "uploaded_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
+})),
+  "audit": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "table_name": zod.string(),
+  "record_id": zod.string().uuid().nullish(),
+  "action": zod.string(),
+  "previous_value": zod.string().nullish(),
+  "new_value": zod.string().nullish(),
+  "memo": zod.string().nullish(),
+  "created_at": zod.coerce.date()
 }))
 })
 
@@ -593,6 +800,31 @@ export const PostTransactionParams = zod.object({
 })
 
 export const PostTransactionResponse = zod.object({
+  "id": zod.string().uuid(),
+  "transaction_date": zod.coerce.date(),
+  "transaction_type": zod.enum(['owner_contribution', 'owner_reimbursement', 'business_expense', 'shared_expense_allocation', 'intercompany_reimbursement', 'owner_draw', 'transfer', 'asset_purchase', 'revenue', 'adjustment']),
+  "description": zod.string(),
+  "vendor_id": zod.string().uuid().nullish(),
+  "vendor_name": zod.string().nullish(),
+  "total_amount": zod.number(),
+  "status": zod.enum(['draft', 'posted', 'needs_review', 'voided']),
+  "business_purpose": zod.string().nullish(),
+  "is_balanced": zod.boolean(),
+  "allocation_count": zod.number(),
+  "line_count": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Void a transaction while retaining its financial history
+ */
+export const VoidTransactionParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const VoidTransactionResponse = zod.object({
   "id": zod.string().uuid(),
   "transaction_date": zod.coerce.date(),
   "transaction_type": zod.enum(['owner_contribution', 'owner_reimbursement', 'business_expense', 'shared_expense_allocation', 'intercompany_reimbursement', 'owner_draw', 'transfer', 'asset_purchase', 'revenue', 'adjustment']),
@@ -697,6 +929,10 @@ export const CreateExpenseAllocationsResponse = zod.array(CreateExpenseAllocatio
 /**
  * @summary List allocation presets
  */
+export const ListAllocationPresetsQueryParams = zod.object({
+  "include_inactive": zod.coerce.boolean().optional()
+})
+
 export const ListAllocationPresetsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
@@ -718,6 +954,27 @@ export const ListAllocationPresetsResponse = zod.array(ListAllocationPresetsResp
 
 
 /**
+ * @summary Create an allocation preset
+ */
+export const createAllocationPresetBodyLinesItemPercentExclusiveMin = 0;
+export const createAllocationPresetBodyLinesItemPercentMax = 100;
+
+
+
+
+export const CreateAllocationPresetBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "entity_id": zod.string().uuid(),
+  "percent": zod.number().gt(createAllocationPresetBodyLinesItemPercentExclusiveMin).max(createAllocationPresetBodyLinesItemPercentMax)
+})).min(1)
+})
+
+export const CreateAllocationPresetResponse = zod.void()
+
+
+/**
  * @summary Get allocation preset by id
  */
 export const GetAllocationPresetParams = zod.object({
@@ -725,6 +982,48 @@ export const GetAllocationPresetParams = zod.object({
 })
 
 export const GetAllocationPresetResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "is_active": zod.boolean(),
+  "lines": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "preset_id": zod.string().uuid(),
+  "entity_id": zod.string().uuid(),
+  "entity_short_code": zod.string().nullish(),
+  "entity_display_name": zod.string().nullish(),
+  "entity_primary_color": zod.string().nullish(),
+  "percent": zod.number()
+})),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Edit, deactivate, or reactivate an allocation preset
+ */
+export const UpdateAllocationPresetParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateAllocationPresetBodyLinesItemPercentExclusiveMin = 0;
+export const updateAllocationPresetBodyLinesItemPercentMax = 100;
+
+
+
+
+export const UpdateAllocationPresetBody = zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "is_active": zod.boolean().optional(),
+  "lines": zod.array(zod.object({
+  "entity_id": zod.string().uuid(),
+  "percent": zod.number().gt(updateAllocationPresetBodyLinesItemPercentExclusiveMin).max(updateAllocationPresetBodyLinesItemPercentMax)
+})).min(1).optional()
+})
+
+export const UpdateAllocationPresetResponse = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "description": zod.string().nullish(),
@@ -828,6 +1127,40 @@ export const CreateOwnerContributionResponse = zod.void()
 
 
 /**
+ * @summary List owner draws
+ */
+export const ListOwnerDrawsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "entity_id": zod.string().uuid(),
+  "entity_display_name": zod.string().nullish(),
+  "entity_primary_color": zod.string().nullish(),
+  "amount": zod.number(),
+  "memo": zod.string().nullish(),
+  "draw_date": zod.coerce.date(),
+  "created_at": zod.coerce.date()
+})
+export const ListOwnerDrawsResponse = zod.array(ListOwnerDrawsResponseItem)
+
+
+/**
+ * @summary Record an owner draw and its balanced journal
+ */
+export const createOwnerDrawBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateOwnerDrawBody = zod.object({
+  "entity_id": zod.string().uuid(),
+  "amount": zod.number().gt(createOwnerDrawBodyAmountExclusiveMin),
+  "memo": zod.string().nullish(),
+  "draw_date": zod.coerce.date()
+})
+
+export const CreateOwnerDrawResponse = zod.void()
+
+
+/**
  * @summary List reimbursement requests
  */
 export const ListReimbursementsResponseItem = zod.object({
@@ -836,11 +1169,12 @@ export const ListReimbursementsResponseItem = zod.object({
   "owed_to_entity_id": zod.string().uuid(),
   "owed_to_entity_name": zod.string().nullish(),
   "owed_to_entity_color": zod.string().nullish(),
+  "owed_to_entity_short_code": zod.string().nullish(),
   "owed_by_entity_id": zod.string().uuid(),
   "owed_by_entity_name": zod.string().nullish(),
   "owed_by_entity_color": zod.string().nullish(),
   "amount": zod.number(),
-  "status": zod.enum(['pending', 'partially_paid', 'paid', 'waived', 'converted_to_contribution']),
+  "status": zod.enum(['pending', 'partially_paid', 'paid', 'waived', 'converted']),
   "memo": zod.string().nullish(),
   "created_at": zod.coerce.date(),
   "updated_at": zod.coerce.date()
@@ -866,11 +1200,80 @@ export const MarkReimbursementPaidResponse = zod.object({
   "owed_to_entity_id": zod.string().uuid(),
   "owed_to_entity_name": zod.string().nullish(),
   "owed_to_entity_color": zod.string().nullish(),
+  "owed_to_entity_short_code": zod.string().nullish(),
   "owed_by_entity_id": zod.string().uuid(),
   "owed_by_entity_name": zod.string().nullish(),
   "owed_by_entity_color": zod.string().nullish(),
   "amount": zod.number(),
-  "status": zod.enum(['pending', 'partially_paid', 'paid', 'waived', 'converted_to_contribution']),
+  "status": zod.enum(['pending', 'partially_paid', 'paid', 'waived', 'converted']),
+  "memo": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Waive reimbursement with a balanced write-off
+ */
+export const WaiveReimbursementParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const waiveReimbursementBodyMemoMin = 3;
+
+
+
+export const WaiveReimbursementBody = zod.object({
+  "effective_date": zod.coerce.date().optional(),
+  "memo": zod.string().min(waiveReimbursementBodyMemoMin)
+})
+
+export const WaiveReimbursementResponse = zod.object({
+  "id": zod.string().uuid(),
+  "original_transaction_id": zod.string().uuid().nullish(),
+  "owed_to_entity_id": zod.string().uuid(),
+  "owed_to_entity_name": zod.string().nullish(),
+  "owed_to_entity_color": zod.string().nullish(),
+  "owed_to_entity_short_code": zod.string().nullish(),
+  "owed_by_entity_id": zod.string().uuid(),
+  "owed_by_entity_name": zod.string().nullish(),
+  "owed_by_entity_color": zod.string().nullish(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'partially_paid', 'paid', 'waived', 'converted']),
+  "memo": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Convert a Personal-funded reimbursement into owner capital
+ */
+export const ConvertReimbursementToContributionParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const convertReimbursementToContributionBodyMemoMin = 3;
+
+
+
+export const ConvertReimbursementToContributionBody = zod.object({
+  "effective_date": zod.coerce.date().optional(),
+  "memo": zod.string().min(convertReimbursementToContributionBodyMemoMin)
+})
+
+export const ConvertReimbursementToContributionResponse = zod.object({
+  "id": zod.string().uuid(),
+  "original_transaction_id": zod.string().uuid().nullish(),
+  "owed_to_entity_id": zod.string().uuid(),
+  "owed_to_entity_name": zod.string().nullish(),
+  "owed_to_entity_color": zod.string().nullish(),
+  "owed_to_entity_short_code": zod.string().nullish(),
+  "owed_by_entity_id": zod.string().uuid(),
+  "owed_by_entity_name": zod.string().nullish(),
+  "owed_by_entity_color": zod.string().nullish(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'partially_paid', 'paid', 'waived', 'converted']),
   "memo": zod.string().nullish(),
   "created_at": zod.coerce.date(),
   "updated_at": zod.coerce.date()
@@ -1014,22 +1417,29 @@ export const ListDocumentsQueryParams = zod.object({
   "transaction_id": zod.coerce.string().uuid().optional(),
   "document_type": zod.coerce.string().optional(),
   "period_month": zod.date().optional(),
-  "evidence_status": zod.coerce.string().optional()
+  "evidence_status": zod.coerce.string().optional(),
+  "include_archived": zod.coerce.boolean().optional()
 })
 
 export const ListDocumentsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
   "file_name": zod.string().nullish(),
-  "file_path": zod.string().nullish(),
+  "mime_type": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "file_sha256": zod.string().nullish(),
+  "has_file": zod.boolean(),
   "entity_id": zod.string().uuid().nullish(),
   "entity_display_name": zod.string().nullish(),
   "account_id": zod.string().uuid().nullish(),
   "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
   "period_month": zod.coerce.date().nullish(),
   "description": zod.string().nullish(),
-  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review']),
-  "uploaded_at": zod.coerce.date()
+  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review', 'archived']),
+  "uploaded_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
 })
 export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem)
 
@@ -1037,18 +1447,14 @@ export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem)
 /**
  * @summary Create document metadata
  */
-export const createDocumentBodyEvidenceStatusDefault = `metadata_only`;
-
 export const CreateDocumentBody = zod.object({
-  "document_type": zod.string(),
-  "file_name": zod.string().nullish(),
-  "file_path": zod.string().nullish(),
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
   "entity_id": zod.string().uuid().nullish(),
   "account_id": zod.string().uuid().nullish(),
   "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
   "period_month": zod.coerce.date().nullish(),
-  "description": zod.string().nullish(),
-  "evidence_status": zod.string().default(createDocumentBodyEvidenceStatusDefault)
+  "description": zod.string().nullish()
 })
 
 export const CreateDocumentResponse = zod.void()
@@ -1062,34 +1468,140 @@ export const UpdateDocumentParams = zod.object({
 })
 
 export const UpdateDocumentBody = zod.object({
-  "document_type": zod.string().nullish(),
-  "file_name": zod.string().nullish(),
-  "file_path": zod.string().nullish(),
-  "description": zod.string().nullish(),
-  "evidence_status": zod.string().nullish()
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']).nullish(),
+  "entity_id": zod.string().uuid().nullish(),
+  "account_id": zod.string().uuid().nullish(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
+  "period_month": zod.coerce.date().nullish(),
+  "description": zod.string().nullish()
 })
 
 export const UpdateDocumentResponse = zod.object({
   "id": zod.string().uuid(),
   "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
   "file_name": zod.string().nullish(),
-  "file_path": zod.string().nullish(),
+  "mime_type": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "file_sha256": zod.string().nullish(),
+  "has_file": zod.boolean(),
   "entity_id": zod.string().uuid().nullish(),
   "entity_display_name": zod.string().nullish(),
   "account_id": zod.string().uuid().nullish(),
   "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
   "period_month": zod.coerce.date().nullish(),
   "description": zod.string().nullish(),
-  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review']),
-  "uploaded_at": zod.coerce.date()
+  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review', 'archived']),
+  "uploaded_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
 })
+
+
+/**
+ * @summary Archive document metadata and retain its file
+ */
+export const ArchiveDocumentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ArchiveDocumentResponse = zod.object({
+  "archived": zod.boolean(),
+  "document": zod.object({
+  "id": zod.string().uuid(),
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
+  "file_name": zod.string().nullish(),
+  "mime_type": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "file_sha256": zod.string().nullish(),
+  "has_file": zod.boolean(),
+  "entity_id": zod.string().uuid().nullish(),
+  "entity_display_name": zod.string().nullish(),
+  "account_id": zod.string().uuid().nullish(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
+  "period_month": zod.coerce.date().nullish(),
+  "description": zod.string().nullish(),
+  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review', 'archived']),
+  "uploaded_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
+})
+})
+
+
+/**
+ * @summary Upload an evidence file and create its metadata
+ */
+export const UploadEvidenceBody = zod.object({
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
+  "entity_id": zod.string().uuid().nullish(),
+  "account_id": zod.string().uuid().nullish(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
+  "period_month": zod.coerce.date().nullish(),
+  "description": zod.string().nullish()
+}).and(zod.object({
+  "file": zod.instanceof(File)
+}))
+
+export const UploadEvidenceResponse = zod.void()
+
+
+/**
+ * @summary Replace an evidence file while retaining the previous bytes
+ */
+export const ReplaceEvidenceFileParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ReplaceEvidenceFileBody = zod.object({
+  "file": zod.instanceof(File)
+})
+
+export const ReplaceEvidenceFileResponse = zod.object({
+  "id": zod.string().uuid(),
+  "document_type": zod.enum(['receipt', 'invoice', 'screenshot', 'contract', 'bank_statement', 'subscription_receipt', 'tax_document', 'note', 'other']),
+  "file_name": zod.string().nullish(),
+  "mime_type": zod.string().nullish(),
+  "file_size_bytes": zod.number().nullish(),
+  "file_sha256": zod.string().nullish(),
+  "has_file": zod.boolean(),
+  "entity_id": zod.string().uuid().nullish(),
+  "entity_display_name": zod.string().nullish(),
+  "account_id": zod.string().uuid().nullish(),
+  "transaction_id": zod.string().uuid().nullish(),
+  "statement_id": zod.string().uuid().nullish(),
+  "period_month": zod.coerce.date().nullish(),
+  "description": zod.string().nullish(),
+  "evidence_status": zod.enum(['metadata_only', 'attached', 'missing', 'needs_review', 'archived']),
+  "uploaded_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Preview or download an evidence file
+ */
+export const GetEvidenceContentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetEvidenceContentQueryParams = zod.object({
+  "download": zod.coerce.boolean().optional()
+})
+
+export const GetEvidenceContentResponse = zod.unknown()
 
 
 /**
  * @summary List statements
  */
 export const ListStatementsQueryParams = zod.object({
-  "account_id": zod.coerce.string().uuid().optional()
+  "account_id": zod.coerce.string().uuid().optional(),
+  "include_archived": zod.coerce.boolean().optional().describe('Include archived statements in the history view.')
 })
 
 export const ListStatementsResponseItem = zod.object({
@@ -1101,7 +1613,8 @@ export const ListStatementsResponseItem = zod.object({
   "closing_balance": zod.number().nullish(),
   "status": zod.enum(['uploaded', 'reconciling', 'reconciled']),
   "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
 })
 export const ListStatementsResponse = zod.array(ListStatementsResponseItem)
 
@@ -1136,7 +1649,8 @@ export const GetStatementResponse = zod.object({
   "closing_balance": zod.number().nullish(),
   "status": zod.enum(['uploaded', 'reconciling', 'reconciled']),
   "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
 }),
   "lines": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -1154,15 +1668,16 @@ export const GetStatementResponse = zod.object({
 
 
 /**
- * @summary Delete statement
+ * @summary Archive statement while retaining lines and reconciliation history
  */
-export const DeleteStatementParams = zod.object({
+export const ArchiveStatementParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
-export const DeleteStatementResponse = zod.object({
-  "deleted": zod.boolean(),
-  "id": zod.string().uuid()
+export const ArchiveStatementResponse = zod.object({
+  "archived": zod.boolean(),
+  "id": zod.string().uuid(),
+  "archived_at": zod.coerce.date()
 })
 
 
@@ -1216,7 +1731,8 @@ export const AddStatementLinesResponse = zod.object({
   "closing_balance": zod.number().nullish(),
   "status": zod.enum(['uploaded', 'reconciling', 'reconciled']),
   "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
+  "updated_at": zod.coerce.date(),
+  "archived_at": zod.coerce.date().nullish()
 }),
   "lines": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -1371,7 +1887,7 @@ export const UpdateMonthlyClosePeriodResponse = zod.object({
  * @summary Export data
  */
 export const GetExportParams = zod.object({
-  "type": zod.enum(['all_transactions', 'expenses_by_entity', 'expenses_by_category', 'owner_contributions', 'reimbursements', 'intercompany_balances', 'tax_reserve_activity', 'document_index', 'personal_non_deductible', 'monthly_close_summary', 'statement_reconciliation_summary'])
+  "type": zod.enum(['all_transactions', 'expenses_by_entity', 'expenses_by_category', 'owner_contributions', 'owner_draws', 'company_retention', 'reimbursements', 'intercompany_balances', 'tax_reserve_activity', 'document_index', 'personal_non_deductible', 'monthly_close_summary', 'statement_reconciliation_summary'])
 })
 
 export const GetExportQueryParams = zod.object({
@@ -1387,6 +1903,36 @@ export const GetExportResponse = zod.object({
   "records": zod.array(zod.record(zod.string(), zod.unknown())),
   "generated_at": zod.coerce.date()
 })
+
+
+/**
+ * @summary List immutable audit records
+ */
+export const listAuditRecordsQueryLimitDefault = 200;
+export const listAuditRecordsQueryLimitMax = 500;
+
+
+
+export const ListAuditRecordsQueryParams = zod.object({
+  "table_name": zod.coerce.string().optional(),
+  "action": zod.coerce.string().optional(),
+  "record_id": zod.coerce.string().uuid().optional(),
+  "from": zod.date().optional(),
+  "to": zod.date().optional(),
+  "limit": zod.coerce.number().min(1).max(listAuditRecordsQueryLimitMax).default(listAuditRecordsQueryLimitDefault)
+})
+
+export const ListAuditRecordsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "table_name": zod.string(),
+  "record_id": zod.string().uuid().nullish(),
+  "action": zod.string(),
+  "previous_value": zod.string().nullish(),
+  "new_value": zod.string().nullish(),
+  "memo": zod.string().nullish(),
+  "created_at": zod.coerce.date()
+})
+export const ListAuditRecordsResponse = zod.array(ListAuditRecordsResponseItem)
 
 
 /**

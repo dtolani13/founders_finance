@@ -69,6 +69,7 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
     intercompany_links,
     monthly_close_periods,
     owner_contributions,
+    owner_draws,
     reconciliation_matches,
     reimbursement_requests,
     statement_lines,
@@ -304,6 +305,10 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(defaultAccounts.length, 2);
       assert.equal(defaultAccounts.every((account) => account.is_active), true);
       assert.equal(defaultAccounts.some((account) => account.is_tax_reserve), true);
+      await db.update(accounts).set({ current_balance: "125.00" }).where(eq(accounts.id, defaultAccounts[0].id));
+      const closureAssessment = await lifecycle.assessCompanyClosure(created.id);
+      assert.equal(closureAssessment.nonzero_accounts.length, 1);
+      assert.equal(closureAssessment.warnings.some((warning) => warning.includes("non-zero balance")), true);
 
       const closed = await lifecycle.closeCompany(created.id, { archive_reason: "Operations ended." });
       assert.equal(closed.lifecycle_status, "closed");
@@ -407,6 +412,40 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
           && error.code === "REIMBURSEMENT_ALREADY_PROCESSED",
       );
 
+      const [waiverRequest] = await db.insert(reimbursement_requests).values({
+        owed_to_entity_id: companyA.id,
+        owed_by_entity_id: companyB.id,
+        amount: "18.00",
+        status: "pending",
+      }).returning();
+      const waived = await operations.waiveReimbursement(waiverRequest.id, {
+        effective_date: "2026-09-17",
+        memo: "Mutually approved write-off fixture",
+      });
+      assert.equal(waived.status, "waived");
+      assert.ok(waived.paid_transaction_id);
+      const waiverLines = await db.select().from(transaction_lines).where(eq(transaction_lines.transaction_id, waived.paid_transaction_id!));
+      assert.equal(waiverLines.length, 4);
+      assert.equal(waiverLines.reduce((sum, line) => sum + Number(line.debit), 0), 36);
+      assert.equal(waiverLines.reduce((sum, line) => sum + Number(line.credit), 0), 36);
+
+      const [personal] = await db.select().from(entities).where(eq(entities.short_code, "PERSONAL"));
+      assert.ok(personal);
+      const [convertRequest] = await db.insert(reimbursement_requests).values({
+        owed_to_entity_id: personal.id,
+        owed_by_entity_id: companyB.id,
+        amount: "42.00",
+        status: "pending",
+      }).returning();
+      const converted = await operations.convertReimbursementToContribution(convertRequest.id, {
+        effective_date: "2026-09-17",
+        memo: "Owner elected to capitalize reimbursement fixture",
+      });
+      assert.equal(converted.status, "converted");
+      const convertedContributions = await db.select().from(owner_contributions).where(eq(owner_contributions.transaction_id, converted.paid_transaction_id!));
+      assert.equal(convertedContributions.length, 1);
+      assert.equal(convertedContributions[0].entity_id, companyB.id);
+
       const ownerResult = await operations.createOwnerContribution({
         entity_id: companyA.id,
         amount: 500,
@@ -422,6 +461,21 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(ownerLines.length, 2);
       assert.equal(ownerLines.reduce((sum, line) => sum + Number(line.debit), 0), 500);
       assert.equal(ownerLines.reduce((sum, line) => sum + Number(line.credit), 0), 500);
+
+      const drawResult = await operations.createOwnerDraw({
+        entity_id: companyA.id,
+        amount: 125,
+        draw_date: "2026-09-18",
+        memo: "Owner draw fixture",
+      });
+      const drawRows = await db.select().from(owner_draws).where(eq(owner_draws.id, drawResult.draw.id));
+      assert.equal(drawRows[0].draw_date, "2026-09-18");
+      const drawLines = await db.select().from(transaction_lines)
+        .where(eq(transaction_lines.transaction_id, drawResult.draw.transaction_id!));
+      assert.equal(drawLines.length, 2);
+      assert.equal(drawLines.reduce((sum, line) => sum + Number(line.debit), 0), 125);
+      assert.equal(drawLines.reduce((sum, line) => sum + Number(line.credit), 0), 125);
+      assert.equal(drawLines.some((line) => line.account_id === accountA.id && Number(line.credit) === 125), true);
     });
 
     await t.test("reconciliation is account-aware, posted-only, audited, and duplicate-safe", async () => {
@@ -461,6 +515,21 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
         operations.matchStatementLine(line.id, { transaction_id: transaction.id, match_type: "manual" }),
         (error: unknown) => error instanceof operations.FinancialOperationError
           && error.code === "STATEMENT_LINE_ALREADY_MATCHED",
+      );
+
+      const archived = await operations.archiveStatement(statement.id);
+      assert.ok(archived.archived_at);
+      assert.equal(archived.status, "reconciling");
+      assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statement.id))).length, 1);
+      assert.equal((await db.select().from(reconciliation_matches).where(eq(reconciliation_matches.statement_line_id, line.id))).length, 1);
+      assert.equal(
+        (await db.select().from(audit_log).where(eq(audit_log.record_id, statement.id))).some((audit) => audit.action === "archive"),
+        true,
+      );
+      await assert.rejects(
+        operations.matchStatementLine(line.id, { transaction_id: transaction.id, match_type: "manual" }),
+        (error: unknown) => error instanceof operations.FinancialOperationError
+          && error.code === "STATEMENT_ARCHIVED",
       );
     });
 

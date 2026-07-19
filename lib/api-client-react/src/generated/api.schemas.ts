@@ -5,6 +5,17 @@
  * Founders Finance API
  * OpenAPI spec version: 0.1.0
  */
+export interface AuditRecord {
+  id: string;
+  table_name: string;
+  record_id?: string | null;
+  action: string;
+  previous_value?: string | null;
+  new_value?: string | null;
+  memo?: string | null;
+  created_at: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -91,6 +102,23 @@ export interface UpdateEntityBody {
   tax_classification_note?: string | null;
 }
 
+export type EntityClosureAssessmentNonzeroAccountsItem = {
+  id: string;
+  name: string;
+  balance: number;
+};
+
+export interface EntityClosureAssessment {
+  company_id: string;
+  can_close: boolean;
+  warnings: string[];
+  nonzero_accounts: EntityClosureAssessmentNonzeroAccountsItem[];
+  open_intercompany_count: number;
+  open_reimbursement_count: number;
+  unreconciled_line_count: number;
+  evidence_issue_count: number;
+}
+
 export interface Account {
   id: string;
   entity_id?: string | null;
@@ -106,6 +134,51 @@ export interface Account {
   updated_at: string;
 }
 
+export type CreateAccountBodyAccountType = typeof CreateAccountBodyAccountType[keyof typeof CreateAccountBodyAccountType];
+
+
+export const CreateAccountBodyAccountType = {
+  checking: 'checking',
+  savings: 'savings',
+  credit_card: 'credit_card',
+  cash: 'cash',
+  loan: 'loan',
+  other: 'other',
+} as const;
+
+export interface CreateAccountBody {
+  entity_id: string;
+  name: string;
+  account_type: CreateAccountBodyAccountType;
+  institution_name?: string | null;
+  /** @pattern ^[0-9]{4}$ */
+  last_four?: string | null;
+  opening_balance?: number;
+  is_tax_reserve?: boolean;
+}
+
+export type UpdateAccountBodyAccountType = typeof UpdateAccountBodyAccountType[keyof typeof UpdateAccountBodyAccountType];
+
+
+export const UpdateAccountBodyAccountType = {
+  checking: 'checking',
+  savings: 'savings',
+  credit_card: 'credit_card',
+  cash: 'cash',
+  loan: 'loan',
+  other: 'other',
+} as const;
+
+export interface UpdateAccountBody {
+  name?: string;
+  account_type?: UpdateAccountBodyAccountType;
+  institution_name?: string | null;
+  /** @pattern ^[0-9]{4}$ */
+  last_four?: string | null;
+  is_tax_reserve?: boolean;
+  is_active?: boolean;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -114,11 +187,49 @@ export interface Category {
   is_active: boolean;
 }
 
+export type CreateCategoryBodyCategoryType = typeof CreateCategoryBodyCategoryType[keyof typeof CreateCategoryBodyCategoryType];
+
+
+export const CreateCategoryBodyCategoryType = {
+  expense: 'expense',
+  income: 'income',
+  asset: 'asset',
+  liability: 'liability',
+  equity: 'equity',
+  other: 'other',
+} as const;
+
+export interface CreateCategoryBody {
+  name: string;
+  category_type: CreateCategoryBodyCategoryType;
+  description?: string | null;
+}
+
+export type UpdateCategoryBodyCategoryType = typeof UpdateCategoryBodyCategoryType[keyof typeof UpdateCategoryBodyCategoryType];
+
+
+export const UpdateCategoryBodyCategoryType = {
+  expense: 'expense',
+  income: 'income',
+  asset: 'asset',
+  liability: 'liability',
+  equity: 'equity',
+  other: 'other',
+} as const;
+
+export interface UpdateCategoryBody {
+  name?: string;
+  category_type?: UpdateCategoryBodyCategoryType;
+  description?: string | null;
+  is_active?: boolean;
+}
+
 export interface Vendor {
   id: string;
   name: string;
   default_category_id?: string | null;
   notes?: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +238,13 @@ export interface CreateVendorBody {
   name: string;
   default_category_id?: string | null;
   notes?: string | null;
+}
+
+export interface UpdateVendorBody {
+  name?: string;
+  default_category_id?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
 }
 
 export type TransactionTransactionType = typeof TransactionTransactionType[keyof typeof TransactionTransactionType];
@@ -202,10 +320,59 @@ export interface ExpenseAllocation {
   created_at: string;
 }
 
+export type DocumentDocumentType = typeof DocumentDocumentType[keyof typeof DocumentDocumentType];
+
+
+export const DocumentDocumentType = {
+  receipt: 'receipt',
+  invoice: 'invoice',
+  screenshot: 'screenshot',
+  contract: 'contract',
+  bank_statement: 'bank_statement',
+  subscription_receipt: 'subscription_receipt',
+  tax_document: 'tax_document',
+  note: 'note',
+  other: 'other',
+} as const;
+
+export type DocumentEvidenceStatus = typeof DocumentEvidenceStatus[keyof typeof DocumentEvidenceStatus];
+
+
+export const DocumentEvidenceStatus = {
+  metadata_only: 'metadata_only',
+  attached: 'attached',
+  missing: 'missing',
+  needs_review: 'needs_review',
+  archived: 'archived',
+} as const;
+
+export interface Document {
+  id: string;
+  document_type: DocumentDocumentType;
+  file_name?: string | null;
+  mime_type?: string | null;
+  file_size_bytes?: number | null;
+  file_sha256?: string | null;
+  has_file: boolean;
+  entity_id?: string | null;
+  entity_display_name?: string | null;
+  account_id?: string | null;
+  transaction_id?: string | null;
+  statement_id?: string | null;
+  period_month?: string | null;
+  description?: string | null;
+  evidence_status: DocumentEvidenceStatus;
+  uploaded_at: string;
+  updated_at: string;
+  archived_at?: string | null;
+}
+
 export interface TransactionDetail {
   transaction: Transaction;
   lines: TransactionLine[];
   allocations: ExpenseAllocation[];
+  evidence: Document[];
+  audit: AuditRecord[];
 }
 
 export interface CreateTransactionBody {
@@ -293,6 +460,30 @@ export interface AllocationPreset {
   updated_at: string;
 }
 
+export interface AllocationPresetLineInput {
+  entity_id: string;
+  /**
+     * @maximum 100
+     * @exclusiveMinimum 0
+     */
+  percent: number;
+}
+
+export interface CreateAllocationPresetBody {
+  name: string;
+  description?: string | null;
+  /** @minItems 1 */
+  lines: AllocationPresetLineInput[];
+}
+
+export interface UpdateAllocationPresetBody {
+  name?: string;
+  description?: string | null;
+  is_active?: boolean;
+  /** @minItems 1 */
+  lines?: AllocationPresetLineInput[];
+}
+
 export type IntercompanyLinkStatus = typeof IntercompanyLinkStatus[keyof typeof IntercompanyLinkStatus];
 
 
@@ -361,6 +552,26 @@ export interface CreateOwnerContributionBody {
   contribution_date: string;
 }
 
+export interface OwnerDraw {
+  id: string;
+  transaction_id?: string | null;
+  entity_id: string;
+  entity_display_name?: string | null;
+  entity_primary_color?: string | null;
+  amount: number;
+  memo?: string | null;
+  draw_date: string;
+  created_at: string;
+}
+
+export interface CreateOwnerDrawBody {
+  entity_id: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  memo?: string | null;
+  draw_date: string;
+}
+
 export type ReimbursementRequestStatus = typeof ReimbursementRequestStatus[keyof typeof ReimbursementRequestStatus];
 
 
@@ -369,7 +580,7 @@ export const ReimbursementRequestStatus = {
   partially_paid: 'partially_paid',
   paid: 'paid',
   waived: 'waived',
-  converted_to_contribution: 'converted_to_contribution',
+  converted: 'converted',
 } as const;
 
 export interface ReimbursementRequest {
@@ -378,6 +589,7 @@ export interface ReimbursementRequest {
   owed_to_entity_id: string;
   owed_to_entity_name?: string | null;
   owed_to_entity_color?: string | null;
+  owed_to_entity_short_code?: string | null;
   owed_by_entity_id: string;
   owed_by_entity_name?: string | null;
   owed_by_entity_color?: string | null;
@@ -386,6 +598,12 @@ export interface ReimbursementRequest {
   memo?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReimbursementResolutionBody {
+  effective_date?: string;
+  /** @minLength 3 */
+  memo: string;
 }
 
 export interface EntityDashboardCard {
@@ -467,10 +685,10 @@ export interface TaxTransferSuggestion {
   disclaimer: string;
 }
 
-export type DocumentDocumentType = typeof DocumentDocumentType[keyof typeof DocumentDocumentType];
+export type CreateDocumentBodyDocumentType = typeof CreateDocumentBodyDocumentType[keyof typeof CreateDocumentBodyDocumentType];
 
 
-export const DocumentDocumentType = {
+export const CreateDocumentBodyDocumentType = {
   receipt: 'receipt',
   invoice: 'invoice',
   screenshot: 'screenshot',
@@ -482,49 +700,48 @@ export const DocumentDocumentType = {
   other: 'other',
 } as const;
 
-export type DocumentEvidenceStatus = typeof DocumentEvidenceStatus[keyof typeof DocumentEvidenceStatus];
+export interface CreateDocumentBody {
+  document_type: CreateDocumentBodyDocumentType;
+  entity_id?: string | null;
+  account_id?: string | null;
+  transaction_id?: string | null;
+  statement_id?: string | null;
+  period_month?: string | null;
+  description?: string | null;
+}
+
+export type UpdateDocumentBodyDocumentType = typeof UpdateDocumentBodyDocumentType[keyof typeof UpdateDocumentBodyDocumentType] | null;
 
 
-export const DocumentEvidenceStatus = {
-  metadata_only: 'metadata_only',
-  attached: 'attached',
-  missing: 'missing',
-  needs_review: 'needs_review',
+export const UpdateDocumentBodyDocumentType = {
+  receipt: 'receipt',
+  invoice: 'invoice',
+  screenshot: 'screenshot',
+  contract: 'contract',
+  bank_statement: 'bank_statement',
+  subscription_receipt: 'subscription_receipt',
+  tax_document: 'tax_document',
+  note: 'note',
+  other: 'other',
 } as const;
 
-export interface Document {
-  id: string;
-  document_type: DocumentDocumentType;
-  file_name?: string | null;
-  file_path?: string | null;
-  entity_id?: string | null;
-  entity_display_name?: string | null;
-  account_id?: string | null;
-  transaction_id?: string | null;
-  period_month?: string | null;
-  description?: string | null;
-  evidence_status: DocumentEvidenceStatus;
-  uploaded_at: string;
-}
-
-export interface CreateDocumentBody {
-  document_type: string;
-  file_name?: string | null;
-  file_path?: string | null;
-  entity_id?: string | null;
-  account_id?: string | null;
-  transaction_id?: string | null;
-  period_month?: string | null;
-  description?: string | null;
-  evidence_status?: string;
-}
-
 export interface UpdateDocumentBody {
-  document_type?: string | null;
-  file_name?: string | null;
-  file_path?: string | null;
+  document_type?: UpdateDocumentBodyDocumentType;
+  entity_id?: string | null;
+  account_id?: string | null;
+  transaction_id?: string | null;
+  statement_id?: string | null;
+  period_month?: string | null;
   description?: string | null;
-  evidence_status?: string | null;
+}
+
+export type UploadEvidenceBody = CreateDocumentBody & {
+  file: Blob;
+};
+
+export interface ArchiveDocumentResponse {
+  archived: boolean;
+  document: Document;
 }
 
 export type StatementStatus = typeof StatementStatus[keyof typeof StatementStatus];
@@ -546,6 +763,7 @@ export interface Statement {
   status: StatementStatus;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
 }
 
 export type StatementLineStatus = typeof StatementLineStatus[keyof typeof StatementLineStatus];
@@ -805,6 +1023,15 @@ include_inactive?: boolean;
 
 export type ListAccountsParams = {
 entity_id?: string;
+include_inactive?: boolean;
+};
+
+export type ListCategoriesParams = {
+include_inactive?: boolean;
+};
+
+export type ListVendorsParams = {
+include_inactive?: boolean;
 };
 
 export type ListTransactionsParams = {
@@ -815,21 +1042,39 @@ date_from?: string;
 date_to?: string;
 };
 
+export type ListAllocationPresetsParams = {
+include_inactive?: boolean;
+};
+
 export type ListDocumentsParams = {
 entity_id?: string;
 transaction_id?: string;
 document_type?: string;
 period_month?: string;
 evidence_status?: string;
+include_archived?: boolean;
+};
+
+export type ReplaceEvidenceFileBody = {
+  file: Blob;
+};
+
+export type GetEvidenceContentParams = {
+download?: boolean;
 };
 
 export type ListStatementsParams = {
 account_id?: string;
+/**
+ * Include archived statements in the history view.
+ */
+include_archived?: boolean;
 };
 
-export type DeleteStatement200 = {
-  deleted: boolean;
+export type ArchiveStatement200 = {
+  archived: boolean;
   id: string;
+  archived_at: string;
 };
 
 export type ListMonthlyClosePeriodsParams = {
@@ -839,4 +1084,17 @@ entity_id?: string;
 export type GetExportParams = {
 entity_id?: string;
 period_month?: string;
+};
+
+export type ListAuditRecordsParams = {
+table_name?: string;
+action?: string;
+record_id?: string;
+from?: string;
+to?: string;
+/**
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
 };

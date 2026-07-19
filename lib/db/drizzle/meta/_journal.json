@@ -29,6 +29,27 @@
       "when": 1784415788508,
       "tag": "0003_reconciliation_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784417158788,
+      "tag": "0004_secure_evidence_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784418329003,
+      "tag": "0005_financial_record_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784418641275,
+      "tag": "0006_owner_draw_workflow",
+      "breakpoints": true
     }
   ]
 }

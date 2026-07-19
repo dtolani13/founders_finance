@@ -318,7 +318,7 @@ The app's tax reserve suggestions are based on a configurable percentage rule. T
 
 ### What it stores
 
-The evidence vault records metadata about supporting documents. It does not upload or serve files — you store the actual files yourself.
+The evidence vault securely stores supporting documents outside the public web root. The app validates file signatures, type, and size; records a SHA-256 checksum; and provides authenticated preview/download, replacement, and archive actions.
 
 | Evidence Type | When to use |
 |---|---|
@@ -331,6 +331,10 @@ The evidence vault records metadata about supporting documents. It does not uplo
 | `tax_document` | 1099, W-9, or other tax form |
 | `note` | Text memo explaining a transaction |
 
+### Upload and retention
+
+Upload files through the Evidence workspace and link them to the relevant company, account, transaction, statement, or period. Preview or download the stored file after upload. Use Replace when a corrected copy is needed; the previous version is retained for auditability. Archive records instead of deleting them.
+
 ### Metadata-only records
 
 If you have no file yet (receipt not found, pending invoice), create a `note` type evidence record explaining the situation. This is better than leaving the transaction with no evidence at all.
@@ -338,7 +342,9 @@ If you have no file yet (receipt not found, pending invoice), create a `note` ty
 ### Status flags
 
 - **Missing evidence:** Transaction has no attached documents. Dashboard highlights these.
-- **Needs review:** Document has been attached but has not been verified against the transaction amount.
+- **Needs review:** Document exists but needs owner review against the transaction.
+- **Missing:** Metadata points to evidence that is unavailable or failed integrity verification.
+- **Archived:** Evidence is retained but removed from the active workspace.
 
 ---
 

@@ -17,7 +17,7 @@
     "backup": "pnpm --filter @workspace/scripts run backup",
     "backup:verify": "pnpm --filter @workspace/scripts run backup:verify",
     "verify-restore": "pnpm --filter @workspace/scripts run verify-restore",
-    "test": "tsx --test artifacts/api-server/src/lib/auth.test.ts artifacts/api-server/src/services/accounting.test.ts lib/backup/src/index.test.ts"
+    "test": "tsx --test artifacts/api-server/src/lib/auth.test.ts artifacts/api-server/src/services/accounting.test.ts artifacts/api-server/src/services/evidence-storage.test.ts lib/backup/src/index.test.ts"
   },
   "private": true,
   "devDependencies": {

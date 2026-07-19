@@ -1,27 +1,39 @@
+import { useState } from "react";
 import {
   useListReimbursements, getListReimbursementsQueryKey,
   useMarkReimbursementPaid,
+  useWaiveReimbursement,
+  useConvertReimbursementToContribution,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate, entityBadgeStyle } from "@/lib/utils";
-import { AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, HandCoins, XCircle } from "lucide-react";
+import type { ReimbursementRequest } from "@workspace/api-client-react";
 
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
   partially_paid: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   waived: "bg-muted text-muted-foreground",
-  converted_to_contribution: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  converted: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
 };
+
+type Resolution = { record: ReimbursementRequest; kind: "waive" | "convert" };
 
 export default function Reimbursements() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [resolution, setResolution] = useState<Resolution | null>(null);
+  const [resolutionDate, setResolutionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [resolutionMemo, setResolutionMemo] = useState("");
 
   const { data: reimbursements, isLoading, error } = useListReimbursements({
     query: { queryKey: getListReimbursementsQueryKey() }
@@ -36,6 +48,19 @@ export default function Reimbursements() {
       onError: () => toast({ title: "Failed to mark paid", variant: "destructive" }),
     }
   });
+
+  const finishResolution = (title: string) => {
+    queryClient.invalidateQueries({ queryKey: getListReimbursementsQueryKey() });
+    toast({ title });
+    setResolution(null);
+    setResolutionMemo("");
+  };
+  const resolutionError = (error: unknown) => toast({
+    title: (error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Reimbursement could not be updated",
+    variant: "destructive",
+  });
+  const waive = useWaiveReimbursement({ mutation: { onSuccess: () => finishResolution("Reimbursement waived and written off"), onError: resolutionError } });
+  const convert = useConvertReimbursementToContribution({ mutation: { onSuccess: () => finishResolution("Reimbursement converted to owner capital"), onError: resolutionError } });
 
   const pending = reimbursements?.filter(r => r.status === "pending" || r.status === "partially_paid") ?? [];
   const settled = reimbursements?.filter(r => r.status !== "pending" && r.status !== "partially_paid") ?? [];
@@ -112,6 +137,14 @@ export default function Reimbursements() {
                         >
                           Mark Paid
                         </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setResolution({ record: r, kind: "waive" })}>
+                          <XCircle className="mr-1 h-3 w-3" />Waive
+                        </Button>
+                        {r.owed_to_entity_short_code === "PERSONAL" && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setResolution({ record: r, kind: "convert" })}>
+                            <HandCoins className="mr-1 h-3 w-3" />Convert
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -142,6 +175,37 @@ export default function Reimbursements() {
           )}
         </>
       )}
+
+      <Dialog open={Boolean(resolution)} onOpenChange={(open) => !open && setResolution(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{resolution?.kind === "waive" ? "Waive reimbursement" : "Convert to owner contribution"}</DialogTitle>
+            <DialogDescription>
+              {resolution?.kind === "waive"
+                ? "This posts a balanced write-off for both sides and closes the reimbursement."
+                : "This reclassifies the business obligation as owner capital. No cash movement will be recorded."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div><label className="mb-1 block text-sm font-medium">Effective date</label><Input type="date" value={resolutionDate} onChange={(event) => setResolutionDate(event.target.value)} /></div>
+            <div><label className="mb-1 block text-sm font-medium">Explanation</label><Textarea value={resolutionMemo} onChange={(event) => setResolutionMemo(event.target.value)} rows={3} placeholder="Required accounting context" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResolution(null)}>Cancel</Button>
+            <Button
+              disabled={resolutionMemo.trim().length < 3 || waive.isPending || convert.isPending}
+              onClick={() => {
+                if (!resolution) return;
+                const data = { effective_date: resolutionDate, memo: resolutionMemo.trim() };
+                if (resolution.kind === "waive") waive.mutate({ id: resolution.record.id, data });
+                else convert.mutate({ id: resolution.record.id, data });
+              }}
+            >
+              {resolution?.kind === "waive" ? "Post Waiver" : "Convert to Capital"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

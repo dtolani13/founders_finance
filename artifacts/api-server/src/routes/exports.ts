@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  transactions, expense_allocations, owner_contributions, reimbursement_requests,
+  transactions, expense_allocations, owner_contributions, owner_draws, reimbursement_requests,
   intercompany_links, tax_reserve_rules, documents, entities, categories,
   monthly_close_periods, statements, statement_lines, accounts, vendors
 } from "@workspace/db";
@@ -96,6 +96,31 @@ router.get("/:type", async (req, res) => {
             date: r.contrib.contribution_date,
             memo: r.contrib.memo,
           }));
+        break;
+      }
+      case "owner_draws": {
+        const rows = await db.select({ draw: owner_draws, entity_display_name: entities.display_name, entity_short_code: entities.short_code })
+          .from(owner_draws)
+          .leftJoin(entities, eq(owner_draws.entity_id, entities.id))
+          .orderBy(desc(owner_draws.draw_date));
+        records = rows
+          .filter(r => !entity_id || r.draw.entity_id === entity_id)
+          .filter(r => !period_month || r.draw.draw_date?.startsWith(period_month.slice(0, 7)))
+          .map(r => ({ id: r.draw.id, transaction_id: r.draw.transaction_id, entity: r.entity_display_name, entity_short_code: r.entity_short_code, amount: r.draw.amount, date: r.draw.draw_date, memo: r.draw.memo }));
+        break;
+      }
+      case "company_retention": {
+        const rows = await db.select().from(entities).orderBy(entities.display_name);
+        records = rows.filter((entity) => entity.lifecycle_status !== "active").map((entity) => ({
+          id: entity.id,
+          legal_name: entity.legal_name,
+          display_name: entity.display_name,
+          short_code: entity.short_code,
+          lifecycle_status: entity.lifecycle_status,
+          closed_at: entity.closed_at,
+          archive_until: entity.archive_until,
+          archive_reason: entity.archive_reason,
+        }));
         break;
       }
       case "reimbursements": {

@@ -167,17 +167,17 @@ export function AuthGate({ children }: AuthGateProps) {
   const isSetup = !status.configured;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030914] text-slate-100">
+    <main className="relative min-h-screen overflow-x-hidden bg-[#030914] text-slate-100">
       <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(2,8,23,0.98)_0%,rgba(3,13,27,0.96)_52%,rgba(2,25,43,0.88)_100%)]" />
       <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-sky-300 via-sky-500 to-blue-700" />
 
-      <div className="relative mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="flex flex-col justify-between px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-14">
-          <div>
+      <div className="relative mx-auto grid min-h-screen w-full min-w-0 max-w-7xl grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="flex min-w-0 flex-col justify-between px-6 py-4 sm:px-10 sm:py-8 lg:px-16 lg:py-14">
+          <div className="min-w-0">
             <img
               src="/brand/founders-finance-logo-reference-highres.png"
               alt="Founders Finance. Every Dollar. Every Entity."
-              className="h-auto w-full max-w-[360px] object-contain object-left mix-blend-screen sm:max-w-[480px] lg:max-w-[560px]"
+              className="block h-auto w-full max-w-[360px] object-contain object-left mix-blend-screen sm:max-w-[480px] lg:max-w-[560px]"
             />
           </div>
 
@@ -211,8 +211,8 @@ export function AuthGate({ children }: AuthGateProps) {
           </p>
         </section>
 
-        <section className="flex items-center border-t border-slate-800/90 bg-[#07111f]/92 px-6 py-8 sm:px-10 sm:py-10 lg:border-l lg:border-t-0 lg:px-14 lg:py-12">
-          <div className="w-full max-w-md lg:mx-auto">
+        <section className="flex min-w-0 items-center border-t border-slate-800/90 bg-[#07111f]/92 px-6 py-8 sm:px-10 sm:py-10 lg:border-l lg:border-t-0 lg:px-14 lg:py-12">
+          <div className="min-w-0 w-full max-w-md lg:mx-auto">
             <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-md border border-sky-400/50 bg-sky-400/10 text-sky-300 shadow-[0_0_30px_rgba(14,165,233,0.16)]">
               <KeyRound className="h-5 w-5" />
             </div>

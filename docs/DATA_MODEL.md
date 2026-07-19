@@ -8,7 +8,7 @@ All tables use UUID primary keys (`defaultRandom()`), and timestamped with `crea
 
 ### `entities`
 
-The three legal entities. Seeded once, not user-created.
+Company and Personal / Founder records. Companies can be created and move through active, closed, and archived lifecycle states without deleting history.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -24,6 +24,10 @@ The three legal entities. Seeded once, not user-created.
 | `accent_color` | text? | Accent brand color |
 | `logo_path` | text? | Not yet used |
 | `is_active` | bool | Default true |
+| `lifecycle_status` | text | `active`, `closed`, or `archived` |
+| `closed_at` / `archived_at` | timestamptz? | Lifecycle timestamps |
+| `retention_until` | date? | Record-retention target |
+| `closure_reason` | text? | Owner-entered lifecycle explanation |
 
 ### `vendors`
 
@@ -34,6 +38,7 @@ Auto-created when a new vendor name is entered on an expense.
 | `id` | uuid PK | |
 | `name` | text unique | |
 | `notes` | text? | |
+| `is_active` | bool | Deactivated vendors remain resolvable historically |
 
 ### `categories`
 
@@ -170,7 +175,7 @@ Tracks owner / inter-entity reimbursements owed to the founder.
 | `owed_to_entity_id` | uuid FK→entities | Entity that should receive payment |
 | `owed_by_entity_id` | uuid FK→entities | Entity that owes payment |
 | `amount` | numeric(14,2) | |
-| `status` | text | `pending`, `partially_paid`, `paid`, `waived`, `converted_to_contribution` |
+| `status` | text | `pending`, `partially_paid`, `paid`, `waived`, `converted` |
 | `paid_transaction_id` | uuid? FK→transactions | |
 | `memo` | text? | |
 
@@ -203,6 +208,7 @@ Cash taken out of an entity by the founder.
 | `entity_id` | uuid FK→entities | |
 | `amount` | numeric(14,2) | |
 | `memo` | text? | |
+| `draw_date` | date | Accounting date for the linked journal |
 
 ---
 
@@ -221,6 +227,7 @@ A monthly bank statement for one account.
 | `opening_balance` | numeric(14,2)? | |
 | `closing_balance` | numeric(14,2)? | |
 | `status` | text | `uploaded`, `in_review`, `reconciled` |
+| `archived_at` | timestamptz? | Archive marker; lines and matches are retained |
 
 ### `statement_lines`
 
@@ -310,14 +317,19 @@ Metadata for uploaded receipts, statements, contracts, and other evidence.
 | `document_type` | text | `receipt`, `bank_statement`, `contract`, `tax_document`, `invoice`, `other` |
 | `file_name` | text? | Original filename |
 | `file_path` | text? | Storage path |
+| `mime_type` | text? | Server-validated media type |
+| `file_size_bytes` | bigint? | Validated file length |
+| `file_sha256` | text? | Content-integrity checksum |
 | `entity_id` | uuid? FK→entities | |
 | `account_id` | uuid? FK→accounts | |
 | `transaction_id` | uuid? FK→transactions | |
 | `statement_id` | uuid? | FK to statements (soft ref) |
 | `period_month` | date? | For period-scoped evidence |
 | `description` | text? | |
-| `evidence_status` | text | `metadata_only`, `uploaded`, `verified` |
+| `evidence_status` | text | `metadata_only`, `attached`, `missing`, `needs_review`, `archived` |
 | `uploaded_at` | timestamptz | |
+| `updated_at` | timestamptz | Last metadata/content change |
+| `archived_at` | timestamptz? | Retention marker; file and metadata are preserved |
 
 ---
 

@@ -129,19 +129,20 @@ Do this even if you plan to waive the reimbursement. The record proves the expen
 
 ---
 
-## Section 8 — Upload / Record Evidence Metadata
+## Section 8 — Upload Evidence
 
 For every significant transaction this month:
 
 1. Go to **Evidence**
-2. Create a document record for each transaction that lacks one:
+2. Upload each supporting file and record:
    - Type: `receipt`, `invoice`, `screenshot`, or `subscription_receipt`
-   - File path: path relative to the `evidence/` directory (e.g., `evidence/rcl/2026-05/openai-api-may.png`)
    - Linked transaction: select the transaction
-3. If you do not have the file yet: create a `note` type record explaining what is missing
-4. Place the actual files in the `evidence/` directory on the host
+   - Company, account, period, and description where applicable
+3. Preview or download the attachment to confirm it opens.
+4. If a receipt is not available, create a metadata-only note explaining what is missing and mark it for review.
+5. Replace a file only through the Evidence workspace so the previous version is retained and the action is audited.
 
-> The app does not upload or store files. You are responsible for placing files in the evidence directory and keeping the `file_path` field accurate.
+> Evidence is stored outside the public web root, checksum-verified, and included in encrypted recovery packages. Do not move managed evidence files by hand.
 
 ---
 

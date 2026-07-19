@@ -19,6 +19,7 @@ tags:
   - name: allocation-presets
   - name: intercompany
   - name: owner-contributions
+  - name: owner-draws
   - name: reimbursements
   - name: dashboard
   - name: tax-reserve
@@ -27,6 +28,7 @@ tags:
   - name: monthly-close
   - name: exports
   - name: backups
+  - name: audit
 
 security:
   - sessionCookie: []
@@ -234,6 +236,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/Entity"
 
+  /entities/{id}/closure-assessment:
+    get:
+      operationId: getEntityClosureAssessment
+      tags: [entities]
+      summary: Inspect balances and unresolved records before closing a company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Company closure warnings and counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityClosureAssessment"
+
   /entities/{id}/archive:
     post:
       operationId: archiveEntity
@@ -292,6 +314,11 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: include_inactive
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of accounts
@@ -301,6 +328,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Account"
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Create a company account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountBody"
+      responses:
+        "201":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
 
   /accounts/{id}:
     get:
@@ -321,12 +365,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Account"
+    put:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Edit, deactivate, or reactivate an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountBody"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
 
   /categories:
     get:
       operationId: listCategories
       tags: [categories]
       summary: List categories
+      parameters:
+        - name: include_inactive
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of categories
@@ -336,12 +410,61 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryBody"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /categories/{id}:
+    put:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Edit, deactivate, or reactivate a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryBody"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
 
   /vendors:
     get:
       operationId: listVendors
       tags: [vendors]
       summary: List vendors
+      parameters:
+        - name: include_inactive
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of vendors
@@ -364,6 +487,32 @@ paths:
       responses:
         "201":
           description: Created vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/{id}:
+    put:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Edit, deactivate, or reactivate a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVendorBody"
+      responses:
+        "200":
+          description: Updated vendor
           content:
             application/json:
               schema:
@@ -542,6 +691,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/Transaction"
 
+  /transactions/{id}/void:
+    post:
+      operationId: voidTransaction
+      tags: [transactions]
+      summary: Void a transaction while retaining its financial history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Voided transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
   /expenses/manual:
     post:
       operationId: createManualExpense
@@ -609,6 +778,12 @@ paths:
       operationId: listAllocationPresets
       tags: [allocation-presets]
       summary: List allocation presets
+      parameters:
+        - name: include_inactive
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of allocation presets with lines
@@ -618,6 +793,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AllocationPreset"
+    post:
+      operationId: createAllocationPreset
+      tags: [allocation-presets]
+      summary: Create an allocation preset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAllocationPresetBody"
+      responses:
+        "201":
+          description: Created allocation preset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationPreset"
 
   /allocation-presets/{id}:
     get:
@@ -634,6 +826,30 @@ paths:
       responses:
         "200":
           description: Allocation preset with lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationPreset"
+    put:
+      operationId: updateAllocationPreset
+      tags: [allocation-presets]
+      summary: Edit, deactivate, or reactivate an allocation preset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAllocationPresetBody"
+      responses:
+        "200":
+          description: Updated allocation preset
           content:
             application/json:
               schema:
@@ -712,6 +928,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/OwnerContribution"
 
+  /owner-draws:
+    get:
+      operationId: listOwnerDraws
+      tags: [owner-draws]
+      summary: List owner draws
+      responses:
+        "200":
+          description: List of owner draws
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OwnerDraw"
+    post:
+      operationId: createOwnerDraw
+      tags: [owner-draws]
+      summary: Record an owner draw and its balanced journal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOwnerDrawBody"
+      responses:
+        "201":
+          description: Created owner draw
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerDraw"
+
   /reimbursements:
     get:
       operationId: listReimbursements
@@ -748,6 +996,58 @@ paths:
       responses:
         "200":
           description: Updated reimbursement request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReimbursementRequest"
+
+  /reimbursements/{id}/waive:
+    post:
+      operationId: waiveReimbursement
+      tags: [reimbursements]
+      summary: Waive reimbursement with a balanced write-off
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReimbursementResolutionBody"
+      responses:
+        "200":
+          description: Waived reimbursement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReimbursementRequest"
+
+  /reimbursements/{id}/convert-to-contribution:
+    post:
+      operationId: convertReimbursementToContribution
+      tags: [reimbursements]
+      summary: Convert a Personal-funded reimbursement into owner capital
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReimbursementResolutionBody"
+      responses:
+        "200":
+          description: Converted reimbursement
           content:
             application/json:
               schema:
@@ -853,6 +1153,11 @@ paths:
           required: false
           schema:
             type: string
+        - name: include_archived
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of documents
@@ -905,6 +1210,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Document"
+    delete:
+      operationId: archiveDocument
+      tags: [documents]
+      summary: Archive document metadata and retain its file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Archived document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchiveDocumentResponse"
+
+  /documents/upload:
+    post:
+      operationId: uploadEvidence
+      tags: [documents]
+      summary: Upload an evidence file and create its metadata
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadEvidenceBody"
+      responses:
+        "201":
+          description: Uploaded evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}/file:
+    post:
+      operationId: replaceEvidenceFile
+      tags: [documents]
+      summary: Replace an evidence file while retaining the previous bytes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        "200":
+          description: Evidence with replacement file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}/content:
+    get:
+      operationId: getEvidenceContent
+      tags: [documents]
+      summary: Preview or download an evidence file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: download
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Evidence file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
 
   /statements:
     get:
@@ -918,6 +1317,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: include_archived
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Include archived statements in the history view.
       responses:
         "200":
           description: List of statements
@@ -967,9 +1372,9 @@ paths:
         "404":
           description: Not found
     delete:
-      operationId: deleteStatement
+      operationId: archiveStatement
       tags: [statements]
-      summary: Delete statement
+      summary: Archive statement while retaining lines and reconciliation history
       parameters:
         - name: id
           in: path
@@ -979,20 +1384,24 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Deleted
+          description: Archived
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  deleted:
+                  archived:
                     type: boolean
                   id:
                     type: string
                     format: uuid
+                  archived_at:
+                    type: string
+                    format: date-time
                 required:
-                  - deleted
+                  - archived
                   - id
+                  - archived_at
 
   /statements/{id}/lines:
     get:
@@ -1173,6 +1582,8 @@ paths:
               - expenses_by_entity
               - expenses_by_category
               - owner_contributions
+              - owner_draws
+              - company_retention
               - reimbursements
               - intercompany_balances
               - tax_reserve_activity
@@ -1199,6 +1610,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExportResult"
+
+  /audit:
+    get:
+      operationId: listAuditRecords
+      tags: [audit]
+      summary: List immutable audit records
+      parameters:
+        - name: table_name
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: record_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+      responses:
+        "200":
+          description: Newest audit records first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditRecord"
 
   /backups:
     get:
@@ -1326,6 +1789,38 @@ components:
         type: string
       description: Backup identifier
   schemas:
+    AuditRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        table_name:
+          type: string
+        record_id:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        previous_value:
+          type: string
+          nullable: true
+        new_value:
+          type: string
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - table_name
+        - action
+        - created_at
+
     HealthStatus:
       type: object
       properties:
@@ -1509,6 +2004,49 @@ components:
           type: string
           nullable: true
 
+    EntityClosureAssessment:
+      type: object
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        can_close:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
+        nonzero_accounts:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              balance:
+                type: number
+            required: [id, name, balance]
+        open_intercompany_count:
+          type: integer
+        open_reimbursement_count:
+          type: integer
+        unreconciled_line_count:
+          type: integer
+        evidence_issue_count:
+          type: integer
+      required:
+        - company_id
+        - can_close
+        - warnings
+        - nonzero_accounts
+        - open_intercompany_count
+        - open_reimbursement_count
+        - unreconciled_line_count
+        - evidence_issue_count
+
     Account:
       type: object
       properties:
@@ -1554,6 +2092,50 @@ components:
         - created_at
         - updated_at
 
+    CreateAccountBody:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        account_type:
+          type: string
+          enum: [checking, savings, credit_card, cash, loan, other]
+        institution_name:
+          type: string
+          nullable: true
+        last_four:
+          type: string
+          pattern: "^[0-9]{4}$"
+          nullable: true
+        opening_balance:
+          type: number
+        is_tax_reserve:
+          type: boolean
+      required: [entity_id, name, account_type]
+
+    UpdateAccountBody:
+      type: object
+      properties:
+        name:
+          type: string
+        account_type:
+          type: string
+          enum: [checking, savings, credit_card, cash, loan, other]
+        institution_name:
+          type: string
+          nullable: true
+        last_four:
+          type: string
+          pattern: "^[0-9]{4}$"
+          nullable: true
+        is_tax_reserve:
+          type: boolean
+        is_active:
+          type: boolean
+
     Category:
       type: object
       properties:
@@ -1575,6 +2157,33 @@ components:
         - category_type
         - is_active
 
+    CreateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category_type:
+          type: string
+          enum: [expense, income, asset, liability, equity, other]
+        description:
+          type: string
+          nullable: true
+      required: [name, category_type]
+
+    UpdateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category_type:
+          type: string
+          enum: [expense, income, asset, liability, equity, other]
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+
     Vendor:
       type: object
       properties:
@@ -1590,6 +2199,8 @@ components:
         notes:
           type: string
           nullable: true
+        is_active:
+          type: boolean
         created_at:
           type: string
           format: date-time
@@ -1599,6 +2210,7 @@ components:
       required:
         - id
         - name
+        - is_active
         - created_at
         - updated_at
 
@@ -1616,6 +2228,21 @@ components:
           nullable: true
       required:
         - name
+
+    UpdateVendorBody:
+      type: object
+      properties:
+        name:
+          type: string
+        default_category_id:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
 
     Transaction:
       type: object
@@ -1791,10 +2418,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExpenseAllocation"
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditRecord"
       required:
         - transaction
         - lines
         - allocations
+        - evidence
+        - audit
 
     CreateTransactionBody:
       type: object
@@ -2035,6 +2672,49 @@ components:
         - created_at
         - updated_at
 
+    AllocationPresetLineInput:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        percent:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+      required: [entity_id, percent]
+
+    CreateAllocationPresetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AllocationPresetLineInput"
+      required: [name, lines]
+
+    UpdateAllocationPresetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AllocationPresetLineInput"
+
     IntercompanyLink:
       type: object
       properties:
@@ -2168,6 +2848,63 @@ components:
         - amount
         - contribution_date
 
+    OwnerDraw:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        entity_id:
+          type: string
+          format: uuid
+        entity_display_name:
+          type: string
+          nullable: true
+        entity_primary_color:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        memo:
+          type: string
+          nullable: true
+        draw_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - entity_id
+        - amount
+        - draw_date
+        - created_at
+
+    CreateOwnerDrawBody:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        memo:
+          type: string
+          nullable: true
+        draw_date:
+          type: string
+          format: date
+      required:
+        - entity_id
+        - amount
+        - draw_date
+
     ReimbursementRequest:
       type: object
       properties:
@@ -2185,6 +2922,9 @@ components:
           type: string
           nullable: true
         owed_to_entity_color:
+          type: string
+          nullable: true
+        owed_to_entity_short_code:
           type: string
           nullable: true
         owed_by_entity_id:
@@ -2205,7 +2945,7 @@ components:
             - partially_paid
             - paid
             - waived
-            - converted_to_contribution
+            - converted
         memo:
           type: string
           nullable: true
@@ -2223,6 +2963,18 @@ components:
         - status
         - created_at
         - updated_at
+
+    ReimbursementResolutionBody:
+      type: object
+      properties:
+        effective_date:
+          type: string
+          format: date
+        memo:
+          type: string
+          minLength: 3
+      required:
+        - memo
 
     EntityDashboardCard:
       type: object
@@ -2419,9 +3171,17 @@ components:
         file_name:
           type: string
           nullable: true
-        file_path:
+        mime_type:
           type: string
           nullable: true
+        file_size_bytes:
+          type: number
+          nullable: true
+        file_sha256:
+          type: string
+          nullable: true
+        has_file:
+          type: boolean
         entity_id:
           type: string
           format: uuid
@@ -2434,6 +3194,10 @@ components:
           format: uuid
           nullable: true
         transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        statement_id:
           type: string
           format: uuid
           nullable: true
@@ -2451,26 +3215,40 @@ components:
             - attached
             - missing
             - needs_review
+            - archived
         uploaded_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
       required:
         - id
         - document_type
         - evidence_status
+        - has_file
         - uploaded_at
+        - updated_at
 
     CreateDocumentBody:
       type: object
       properties:
         document_type:
           type: string
-        file_name:
-          type: string
-          nullable: true
-        file_path:
-          type: string
-          nullable: true
+          enum:
+            - receipt
+            - invoice
+            - screenshot
+            - contract
+            - bank_statement
+            - subscription_receipt
+            - tax_document
+            - note
+            - other
         entity_id:
           type: string
           format: uuid
@@ -2483,6 +3261,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        statement_id:
+          type: string
+          format: uuid
+          nullable: true
         period_month:
           type: string
           format: date
@@ -2490,9 +3272,6 @@ components:
         description:
           type: string
           nullable: true
-        evidence_status:
-          type: string
-          default: metadata_only
       required:
         - document_type
 
@@ -2502,18 +3281,60 @@ components:
         document_type:
           type: string
           nullable: true
-        file_name:
+          enum:
+            - receipt
+            - invoice
+            - screenshot
+            - contract
+            - bank_statement
+            - subscription_receipt
+            - tax_document
+            - note
+            - other
+        entity_id:
           type: string
+          format: uuid
           nullable: true
-        file_path:
+        account_id:
           type: string
+          format: uuid
+          nullable: true
+        transaction_id:
+          type: string
+          format: uuid
+          nullable: true
+        statement_id:
+          type: string
+          format: uuid
+          nullable: true
+        period_month:
+          type: string
+          format: date
           nullable: true
         description:
           type: string
           nullable: true
-        evidence_status:
-          type: string
-          nullable: true
+
+    UploadEvidenceBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateDocumentBody"
+        - type: object
+          properties:
+            file:
+              type: string
+              format: binary
+          required: [file]
+
+    ArchiveDocumentResponse:
+      type: object
+      properties:
+        archived:
+          type: boolean
+        document:
+          $ref: "#/components/schemas/Document"
+      required:
+        - archived
+        - document
 
     Statement:
       type: object
@@ -2548,6 +3369,10 @@ components:
         updated_at:
           type: string
           format: date-time
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
       required:
         - id
         - account_id

@@ -15,6 +15,7 @@ export const statements = pgTable("statements", {
   status: text("status").default("uploaded").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  archived_at: timestamp("archived_at", { withTimezone: true }),
 }, (table) => [
   uniqueIndex("statements_account_month_unique").on(table.account_id, table.statement_month),
 ]);
@@ -44,7 +45,7 @@ export const reconciliation_matches = pgTable("reconciliation_matches", {
   uniqueIndex("reconciliation_statement_line_unique").on(table.statement_line_id),
 ]);
 
-export const insertStatementSchema = createInsertSchema(statements).omit({ id: true, created_at: true, updated_at: true });
+export const insertStatementSchema = createInsertSchema(statements).omit({ id: true, created_at: true, updated_at: true, archived_at: true });
 export type InsertStatement = z.infer<typeof insertStatementSchema>;
 export type Statement = typeof statements.$inferSelect;
 

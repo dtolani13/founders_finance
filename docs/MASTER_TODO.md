@@ -61,25 +61,23 @@ Full operating rules are in `AGENTS.md`.
   - Acceptance: forced failures leave no partial records; posted history is immutable; closed months reject unauthorized mutations; every generated journal remains balanced and traceable.
 
 - [~] **Automated accounting and lifecycle test suite**
-  - A root `pnpm test` command now covers authentication, encrypted backup primitives, expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation/settlement, reimbursement payment, owner contributions, reconciliation, monthly close/reopen, company lifecycle, rollback, idempotency, and audit logging.
+  - A root `pnpm test` command covers authentication, encrypted backup primitives, secure evidence, expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation/settlement, all reimbursement outcomes, owner contributions/draws, reconciliation, monthly close/reopen, company lifecycle, rollback, idempotency, and audit logging.
   - Add frontend workflow tests for critical forms and destructive confirmations.
   - Acceptance: tests run from one documented root command and fail on known integrity regressions.
 
-- [ ] **Evidence file storage and retrieval**
-  - Add secure upload, download, content-type handling, filename/path sanitization, size limits, and allowed-type validation.
-  - Store evidence outside the public web root and include it in verified backups.
-  - Add UI upload, attachment state, preview/download, replacement, and missing-file handling.
-  - Acceptance: receipt and statement files survive backup/restore and cannot escape the configured evidence root.
+- [x] **Evidence file storage and retrieval**
+  - Secure streaming upload, authenticated preview/download, signature-based type validation, server-generated paths, a 20 MB limit, checksum verification, atomic replacement, archive retention, and missing-file handling are implemented.
+  - Evidence is stored outside the public web root and is included in encrypted, verified backups.
+  - Acceptance tests cover unauthenticated access, oversize and spoof rejection, rollback cleanup, versioned replacement, backup/restore byte equality, and tamper detection.
 
 - [x] **API contract and generated-client alignment**
   - Authentication, entity creation, and entity lifecycle operations are represented in the canonical OpenAPI contract.
   - Removed the overlapping manual entity client and regenerated React Query clients and Zod schemas.
   - Verified: consecutive code-generation runs produced identical hashes and frontend/server typechecks pass against regenerated artifacts.
 
-- [~] **Financial-data deletion policy**
-  - Transactions use void/soft-delete behavior and companies use close/archive lifecycle behavior.
-  - Audit every remaining DELETE route and document whether it is guarded, soft, or intentionally hard.
-  - Add explicit retention behavior for statements, evidence metadata, accounts, vendors, categories, and presets.
+- [x] **Financial-data deletion policy**
+  - Transactions void, statements and evidence archive, companies close/archive, and reference records deactivate. Posted history and linked evidence are retained.
+  - Remaining user-facing lifecycle actions are explicit and audited; historical joins continue to resolve inactive reference data.
   - Acceptance: no user-facing action can silently destroy posted financial history or linked evidence.
 
 ## P1 - Core Workflow Completion
@@ -87,13 +85,12 @@ Full operating rules are in `AGENTS.md`.
 - [~] **Company lifecycle management**
   - Add, edit, close, archive, retention date/reason, and reopen are implemented.
   - Automated lifecycle, personal-record protection, account-state, audit, and rollback tests are implemented.
-  - Add account-balance closure warnings, open-obligation warnings, and archived-company export/reporting.
+  - Account-balance, open-obligation, unreconciled-statement, and evidence warnings plus archived-company retention export are implemented.
   - Decide whether archived account reactivation should restore all accounts or only accounts active before closure.
   - Acceptance: lifecycle tests cover open balances, statements, evidence, tax rules, and account-state restoration.
 
 - [~] **Persistent audit trail and audit viewer**
-  - Audit table, writer helper, and API route exist.
-  - Add a read-only UI with entity/table/action/date filters and before/after inspection.
+  - Read-only table/action/record/date filtering and before/after inspection are implemented.
   - Ensure every material mutation writes an audit event.
   - Acceptance: mutation coverage audit identifies no critical unlogged financial operation.
 
@@ -102,13 +99,12 @@ Full operating rules are in `AGENTS.md`.
   - Balanced linked settlement journals and duplicate prevention are implemented; add an explicit reversal workflow and settlement-account selector for companies with multiple checking accounts.
   - Acceptance: both entities' ledger impact and the intercompany link reconcile to zero.
 
-- [~] **Reimbursement completion actions**
-  - Payment now creates and links a balanced, audited journal and rejects duplicate processing.
-  - Add waive and convert-to-contribution flows with confirmation, transaction linkage, and audit entries.
+- [x] **Reimbursement completion actions**
+  - Paid, waived, and converted-to-contribution outcomes create balanced, linked, audited accounting records and reject duplicate processing.
   - Acceptance: paid, waived, and converted states produce traceable accounting outcomes.
 
-- [ ] **Owner draw workflow**
-  - Add owner draw entry, validation, transaction generation, display, and export support.
+- [x] **Owner draw workflow**
+  - Owner draw entry, validation, balanced posted journal generation, history, totals, audit, and export support are implemented.
   - Acceptance: draw appears in ledger, entity cash, owner equity reporting, and exports.
 
 - [ ] **Statement import and assisted reconciliation**
@@ -119,23 +115,23 @@ Full operating rules are in `AGENTS.md`.
 - [~] **Export correctness and accountant handoff**
   - Verify every export type with deterministic fixtures.
   - Confirm entity, period, status, source IDs, and audit-relevant fields are present.
-  - Add archived-company and retention reports.
+  - Owner draws and company lifecycle/retention reports are implemented.
   - Acceptance: export fixture tests validate columns, row counts, filters, and totals.
 
-- [ ] **Account, category, vendor, and preset management**
-  - Add create/edit/deactivate/archive flows with dependency warnings.
-  - Prevent deactivation from breaking historical display or reconciliation.
+- [~] **Account, category, vendor, and preset management**
+  - Create, edit, deactivate, and reactivate flows are implemented for all four reference-data types.
+  - Historical records continue to resolve inactive reference data; dependency warnings still need broader coverage.
   - Acceptance: inactive reference data remains resolvable on historical records.
 
-- [ ] **Transaction detail and correction workflow**
-  - Add a complete transaction detail view with lines, allocations, evidence, audit history, posting state, balance state, and permitted corrections.
+- [x] **Transaction detail and correction workflow**
+  - The detail view includes lines, allocations, evidence, audit history, posting/balance state, and a controlled void action.
   - Acceptance: users can explain every posted transaction from one screen without exposing unsafe direct edits.
 
 ## P2 - Professional Product Quality
 
 - [~] **Responsive shell and visual polish**
-  - Brand palette and emblem are implemented, but narrow viewport behavior and all pages need systematic browser verification.
-  - Add responsive navigation rather than relying on a fixed 326px sidebar.
+  - Responsive desktop/sidebar and mobile-sheet navigation are implemented; the public owner boundary passes a 390x844 geometry check with no horizontal overflow.
+  - Authenticated pages still need systematic screenshot verification at desktop, tablet, and mobile widths.
   - Verify no clipping, overflow, overlap, inaccessible contrast, or inconsistent action hierarchy.
   - Acceptance: screenshot checks pass at representative desktop, laptop, tablet, and mobile widths.
 
@@ -143,9 +139,8 @@ Full operating rules are in `AGENTS.md`.
   - Audit headings, labels, focus order, dialogs, tables, color-only status, and keyboard navigation.
   - Acceptance: automated accessibility scan plus manual keyboard pass on critical workflows.
 
-- [ ] **Performance and bundle splitting**
-  - Current production build warns that the main JavaScript chunk exceeds 500 kB.
-  - Add route-level lazy loading and verify loading/error states.
+- [x] **Performance and bundle splitting**
+  - Route-level lazy loading and stable suspense states are implemented; the main production chunk fell from 630.45 kB to approximately 361.5 kB with no oversized-chunk warning.
   - Acceptance: no unexplained oversized main chunk and no regression in startup behavior.
 
 - [ ] **Operational packaging and startup reliability**
@@ -154,8 +149,8 @@ Full operating rules are in `AGENTS.md`.
   - Acceptance: a clean machine can start the app using documented steps without hidden local state.
 
 - [~] **Documentation reconciliation**
-  - README and several docs contain stale three-entity, no-audit, no-backup-script, no-company-create, and deferred-auth claims.
-  - Reconcile `README.md`, `FEATURE_STATUS.md`, `NEXT_BUILD_STEPS.md`, `KNOWN_LIMITATIONS.md`, `DATA_MODEL.md`, and backup docs with actual code. `HANDOFF_PACKET.md` is current as of the latest checkpoint.
+  - Core product, status, limitation, model, and handoff documents are aligned with the current implementation in this checkpoint.
+  - The longer operator/build guides still require a final consistency sweep before production release.
   - Old database naming is removed from `.env.example`, quick-start, troubleshooting, and monthly-workflow documentation.
   - Acceptance: documentation search finds no claims contradicted by source or schema.
 
@@ -190,23 +185,30 @@ Full operating rules are in `AGENTS.md`.
 
 Verified against the repository on 2026-07-18:
 
-- Four committed migrations now cover the full baseline, integrity constraints, monthly-close correction memo, and reconciliation uniqueness. The local database has zero pending migrations.
+- Seven committed migrations cover the baseline, integrity constraints, monthly-close correction memo, reconciliation uniqueness, secure evidence metadata, financial retention, and owner draws. The local database has zero pending migrations.
 - Disposable empty-database and copied-current-database migration paths converge without row loss; the fingerprint includes columns, constraints, and indexes.
 - Expense graphs, transaction updates, line/allocation replacement, posting, voiding, company lifecycle, owner contributions, settlements, reimbursement payment, reconciliation, and monthly close now use transactional services with in-transaction audit writes.
 - Posted and voided transaction mutation is blocked. Closed periods reject create/edit/post/void/allocation/reconciliation/settlement/contribution work until an audited correction-memo reopen occurs.
 - Database constraints enforce positive amounts, one-sided journal lines, lifecycle/status ranges, allocation ranges, unique close periods, unique statements, and one reconciliation match per statement line.
-- Eighteen deterministic authentication, backup, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement, and close/reopen tests pass.
+- Twenty-five deterministic authentication, backup, evidence, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement, and close/reopen tests pass.
 - Frontend workflow and destructive-confirmation tests are still absent.
-- Secure evidence multipart upload, retrieval, replacement, and preview are still absent; evidence backup packaging exists but cannot yet be exercised through the product upload workflow.
-- Statement and reference-data retention/deactivation policy remains incomplete.
-- Intercompany and reimbursement payment journals are balanced, linked, audited, and duplicate-safe; reversal, reimbursement waive, and contribution-conversion flows remain open.
-- Company lifecycle tests now cover create/default accounts, close, archive, reopen, personal protection, rollback, audit, and account activation state; balance/obligation warnings remain open.
-- Audit persistence covers the newly centralized material mutations, but the audit viewer and a complete mutation-coverage audit remain open.
+- Secure evidence upload, preview/download, replacement, archive, integrity checking, and encrypted backup/restore are implemented and tested.
+- Statements and evidence archive; accounts, categories, vendors, and allocation presets deactivate while remaining visible in historical records.
+- Reimbursement paid/waived/converted outcomes and owner draws are balanced, linked, audited, and tested. Intercompany reversal and account selection remain open.
+- Company lifecycle warnings cover balances, obligations, reconciliation, and evidence. The prior account-active-state restoration decision remains open.
+- The audit viewer is implemented; a final mutation-coverage audit remains open.
 - OpenAPI generation is deterministic and TypeScript verification passes across libraries, API, frontend, and scripts.
-- API and frontend production builds pass. The known 630.45 kB frontend chunk and three UI sourcemap warnings remain.
+- API and frontend production builds pass. Route splitting removed the oversized main-chunk warning; four generated UI sourcemap warnings remain.
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-07-18 - Secure evidence and daily-use workflow push
+
+- Completed: secure evidence storage and recovery; statement/evidence archival and reference-data deactivation; owner draws; reimbursement waive/conversion; audit viewer; transaction detail; lifecycle warnings; reference-data management; owner-draw and retention exports; responsive navigation; and route-level bundle splitting.
+- Verification: 25 tests passed after the final code and documentation pass; all TypeScript targets and both production builds passed; consecutive OpenAPI generations produced identical hashes; seven migrations report applied with none pending; empty/current migration acceptance converged at fingerprint `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`; live API and web health checks passed.
+- Remaining: statement CSV import/preview/duplicate detection/assisted matching; intercompany reversal/account selection; deterministic export fixtures; frontend workflow/accessibility testing; operational packaging; broader error recovery; final audit/reference dependency coverage.
+- Next action: implement statement CSV import using a proven parser, with preview, mapping, duplicate detection, transactional insertion, and confirmation-only assisted matching.
 
 ### 2026-06-18 - Master TODO and alignment protocol
 

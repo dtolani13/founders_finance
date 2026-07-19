@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { statements, statement_lines, accounts, transactions, vendors } from "@workspace/db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { and, eq, desc, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { FinancialOperationError, matchStatementLine } from "../services/financial-operations";
+import { archiveStatement, FinancialOperationError, matchStatementLine } from "../services/financial-operations";
 
 const router = Router();
 
@@ -11,7 +11,7 @@ const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 router.get("/", async (req, res) => {
   try {
-    const { account_id } = req.query;
+    const { account_id, include_archived } = req.query;
     const rows = await db.select({
       stmt: statements,
       account_name: accounts.name,
@@ -20,7 +20,10 @@ router.get("/", async (req, res) => {
       .leftJoin(accounts, eq(statements.account_id, accounts.id))
       .orderBy(desc(statements.statement_month));
 
-    const filtered = account_id ? rows.filter(r => r.stmt.account_id === account_id) : rows;
+    const filtered = rows.filter((row) => {
+      if (account_id && row.stmt.account_id !== account_id) return false;
+      return include_archived === "true" || row.stmt.archived_at === null;
+    });
 
     const stmtIds = filtered.map(r => r.stmt.id);
     const lineMap: Record<string, { unmatched: number; total: number }> = {};
@@ -142,6 +145,10 @@ router.put("/:id", async (req, res) => {
 
     const existingLineRows = await db.select().from(statement_lines).where(eq(statement_lines.id, id));
     if (existingLineRows.length) {
+      const parentRows = await db.select().from(statements).where(eq(statements.id, existingLineRows[0].statement_id));
+      if (parentRows[0]?.archived_at) {
+        return res.status(409).json({ error: "Archived statements are read-only." });
+      }
       if (body.status === "matched") {
         return res.status(400).json({ error: "Use the reconciliation action to match a statement line." });
       }
@@ -152,7 +159,11 @@ router.put("/:id", async (req, res) => {
       return res.json(line);
     }
 
-    const stmtRows = await db.update(statements).set({ ...update, updated_at: new Date() }).where(eq(statements.id, id)).returning();
+    const existingStatement = await db.select().from(statements).where(eq(statements.id, id));
+    if (existingStatement[0]?.archived_at) {
+      return res.status(409).json({ error: "Archived statements are read-only." });
+    }
+    const stmtRows = await db.update(statements).set({ ...update, updated_at: new Date() }).where(and(eq(statements.id, id), isNull(statements.archived_at))).returning();
     if (!stmtRows.length) return res.status(404).json({ error: "Not found" });
     const acctRows = await db.select().from(accounts).where(eq(accounts.id, stmtRows[0].account_id));
     res.json({ ...stmtRows[0], account_name: acctRows[0]?.name ?? null });
@@ -170,23 +181,11 @@ router.delete("/:id", async (req, res) => {
     const existing = await db.select().from(statements).where(eq(statements.id, id));
     if (!existing.length) return res.status(404).json({ error: "Statement not found" });
 
-    // Guard: refuse to delete statements that have matched lines.
-    // Matched lines indicate reconciliation work that would be silently lost.
-    const lines = await db.select().from(statement_lines).where(eq(statement_lines.statement_id, id));
-    const matchedCount = lines.filter(l => l.status === "matched").length;
-    if (matchedCount > 0) {
-      return res.status(409).json({
-        error: `Cannot delete statement with ${matchedCount} matched line${matchedCount !== 1 ? "s" : ""}. Unmatch all lines first.`,
-        matched_count: matchedCount,
-      });
-    }
-
-    await db.delete(statement_lines).where(eq(statement_lines.statement_id, id));
-    await db.delete(statements).where(eq(statements.id, id));
-    req.log.info({ id, line_count: lines.length }, "Statement deleted");
-    res.json({ deleted: true, id });
+    const archived = await archiveStatement(id);
+    req.log.info({ id }, "Statement archived");
+    res.json({ archived: true, id, archived_at: archived.archived_at });
   } catch (err) {
-    req.log.error({ err }, "Failed to delete statement");
+    req.log.error({ err }, "Failed to archive statement");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -208,6 +207,7 @@ router.post("/:id/lines", async (req, res) => {
     if (!uuidRe.test(id)) return res.status(404).json({ error: "Statement not found" });
     const stmtRows = await db.select().from(statements).where(eq(statements.id, id));
     if (!stmtRows.length) return res.status(404).json({ error: "Statement not found" });
+    if (stmtRows[0].archived_at) return res.status(409).json({ error: "Archived statements are read-only." });
 
     const { lines } = addLinesSchema.parse(req.body);
     await db.insert(statement_lines).values(

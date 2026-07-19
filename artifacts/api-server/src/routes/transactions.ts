@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   transactions, transaction_lines, expense_allocations,
   vendors, entities, accounts, categories,
+  audit_log, documents,
 } from "@workspace/db";
 import { eq, sql, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import {
   updateTransactionRecord,
   voidTransaction,
 } from "../services/accounting";
+import { toPublicDocument } from "../services/evidence-storage";
 
 const router = Router();
 
@@ -135,10 +137,14 @@ router.get("/:id", async (req, res) => {
       .where(eq(expense_allocations.transaction_id, id));
 
     const [enriched] = await enrichTransactions(rows);
+    const evidence = await db.select().from(documents).where(eq(documents.transaction_id, id));
+    const audit = await db.select().from(audit_log).where(eq(audit_log.record_id, id)).orderBy(desc(audit_log.created_at));
     res.json({
       transaction: enriched,
       lines: lines.map(l => ({ ...l.line, entity_short_code: l.entity_short_code, account_name: l.account_name, category_name: l.category_name })),
       allocations: allocs.map(a => ({ ...a.alloc, entity_short_code: a.entity_short_code, entity_display_name: a.entity_display_name, entity_primary_color: a.entity_primary_color })),
+      evidence: evidence.map(toPublicDocument),
+      audit,
     });
   } catch (err) {
     req.log.error({ err }, "Failed to get transaction");

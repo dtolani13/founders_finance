@@ -1,14 +1,20 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  useListDocuments, getListDocumentsQueryKey,
+  getListDocumentsQueryKey,
+  getListEntitiesQueryKey,
+  getListTransactionsQueryKey,
+  useArchiveDocument,
   useCreateDocument,
-  useUpdateDocument,
-  useListEntities, getListEntitiesQueryKey,
-  useListTransactions, getListTransactionsQueryKey,
+  useListDocuments,
+  useListEntities,
+  useListTransactions,
+  useReplaceEvidenceFile,
+  useUploadEvidence,
 } from "@workspace/api-client-react";
+import type { Document } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -18,50 +24,87 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate, entityBadgeStyle } from "@/lib/utils";
-import { AlertCircle, Files, Plus, Filter, X } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import {
+  AlertCircle,
+  Archive,
+  Download,
+  Eye,
+  FileCheck2,
+  Files,
+  Filter,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Upload,
+  X,
+} from "lucide-react";
 
 const EVIDENCE_STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  metadata_only: { label: "Metadata Only", className: "bg-muted text-muted-foreground" },
-  attached: { label: "Attached", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-  missing: { label: "Missing", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-  needs_review: { label: "Needs Review", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  metadata_only: { label: "Metadata only", className: "bg-muted text-muted-foreground" },
+  attached: { label: "Verified file", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  missing: { label: "File missing", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+  needs_review: { label: "Needs review", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  archived: { label: "Archived", className: "bg-muted text-muted-foreground" },
 };
 
-const DOC_TYPES = ["receipt","invoice","screenshot","contract","bank_statement","subscription_receipt","tax_document","note","other"] as const;
+const DOC_TYPES = ["receipt", "invoice", "screenshot", "contract", "bank_statement", "subscription_receipt", "tax_document", "note", "other"] as const;
+const FILE_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.csv";
 
 const schema = z.object({
   document_type: z.enum(DOC_TYPES),
   entity_id: z.string().optional(),
   transaction_id: z.string().optional(),
-  file_name: z.string().optional(),
-  description: z.string().optional(),
-  evidence_status: z.enum(["metadata_only","attached","missing","needs_review"]).default("metadata_only"),
+  description: z.string().max(4000).optional(),
   period_month: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
+function formatBytes(value: number | null | undefined): string {
+  if (value == null) return "";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message.replace(/^HTTP \d+ [^:]+:\s*/, "") : "The request failed.";
+}
+
 export default function Evidence() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const replacementInput = useRef<HTMLInputElement>(null);
   const [showForm, setShowForm] = useState(false);
-  const [entityFilter, setEntityFilter] = useState<string>("");
-  const [docTypeFilter, setDocTypeFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [monthFilter, setMonthFilter] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [replacementDocumentId, setReplacementDocumentId] = useState<string | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Document | null>(null);
+  const [entityFilter, setEntityFilter] = useState("");
+  const [docTypeFilter, setDocTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [monthFilter, setMonthFilter] = useState("");
 
   const params: Record<string, string> = {};
   if (entityFilter) params.entity_id = entityFilter;
   if (docTypeFilter) params.document_type = docTypeFilter;
   if (statusFilter) params.evidence_status = statusFilter;
-  if (monthFilter) params.period_month = monthFilter + "-01";
+  if (monthFilter) params.period_month = `${monthFilter}-01`;
 
   const { data: documents, isLoading, error } = useListDocuments(params, {
-    query: { queryKey: getListDocumentsQueryKey(params) }
+    query: { queryKey: getListDocumentsQueryKey(params) },
   });
-
   const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
   const { data: transactions } = useListTransactions({}, { query: { queryKey: getListTransactionsQueryKey({}) } });
 
@@ -71,134 +114,180 @@ export default function Evidence() {
       document_type: "receipt",
       entity_id: "__none__",
       transaction_id: "__none__",
-      file_name: "",
       description: "",
-      evidence_status: "metadata_only",
       period_month: "",
     },
   });
 
+  function refreshDocuments() {
+    queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
+  }
+
+  function resetCreateForm() {
+    form.reset();
+    setSelectedFile(null);
+    setShowForm(false);
+  }
+
   const create = useCreateDocument({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
-        toast({ title: "Document recorded" });
-        form.reset();
-        setShowForm(false);
+        refreshDocuments();
+        toast({ title: "Evidence metadata saved" });
+        resetCreateForm();
       },
-      onError: () => toast({ title: "Failed to record document", variant: "destructive" }),
-    }
+      onError: (mutationError) => toast({ title: "Could not save evidence", description: errorMessage(mutationError), variant: "destructive" }),
+    },
   });
 
-  const updateDoc = useUpdateDocument({
+  const upload = useUploadEvidence({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
-        toast({ title: "Status updated" });
+        refreshDocuments();
+        toast({ title: "Evidence uploaded and verified" });
+        resetCreateForm();
       },
-      onError: () => toast({ title: "Failed to update", variant: "destructive" }),
-    }
+      onError: (mutationError) => toast({ title: "Upload failed", description: errorMessage(mutationError), variant: "destructive" }),
+    },
   });
 
+  const replaceFile = useReplaceEvidenceFile({
+    mutation: {
+      onSuccess: () => {
+        refreshDocuments();
+        toast({ title: "Evidence file replaced", description: "The previous file was retained in version storage." });
+      },
+      onError: (mutationError) => toast({ title: "Replacement failed", description: errorMessage(mutationError), variant: "destructive" }),
+      onSettled: () => setReplacementDocumentId(null),
+    },
+  });
+
+  const archive = useArchiveDocument({
+    mutation: {
+      onSuccess: () => {
+        refreshDocuments();
+        toast({ title: "Evidence archived", description: "The metadata and file were retained for recordkeeping." });
+        setArchiveTarget(null);
+      },
+      onError: (mutationError) => toast({ title: "Archive failed", description: errorMessage(mutationError), variant: "destructive" }),
+    },
+  });
+
+  function normalizedMetadata(values: FormValues) {
+    return {
+      document_type: values.document_type,
+      entity_id: values.entity_id && values.entity_id !== "__none__" ? values.entity_id : undefined,
+      transaction_id: values.transaction_id && values.transaction_id !== "__none__" ? values.transaction_id : undefined,
+      description: values.description || undefined,
+      period_month: values.period_month ? `${values.period_month}-01` : undefined,
+    };
+  }
+
   function onSubmit(values: FormValues) {
-    create.mutate({
-      data: {
-        document_type: values.document_type,
-        entity_id: (values.entity_id && values.entity_id !== "__none__") ? values.entity_id : undefined,
-        transaction_id: (values.transaction_id && values.transaction_id !== "__none__") ? values.transaction_id : undefined,
-        file_name: values.file_name || undefined,
-        description: values.description || undefined,
-        evidence_status: values.evidence_status,
-        period_month: values.period_month || undefined,
-      }
-    });
+    const metadata = normalizedMetadata(values);
+    if (selectedFile) {
+      upload.mutate({ data: { ...metadata, file: selectedFile } });
+      return;
+    }
+    create.mutate({ data: metadata });
   }
 
-  function cycleStatus(docId: string, current: string) {
-    const cycle: Record<string, string> = { metadata_only: "attached", attached: "missing", missing: "needs_review", needs_review: "metadata_only" };
-    updateDoc.mutate({ id: docId, data: { evidence_status: cycle[current] ?? "metadata_only" } });
+  function beginReplacement(documentId: string) {
+    setReplacementDocumentId(documentId);
+    replacementInput.current?.click();
   }
 
-  const hasFilters = !!(entityFilter || docTypeFilter || statusFilter || monthFilter);
-  const missing = documents?.filter(d => d.evidence_status === "missing").length ?? 0;
-  const needsReview = documents?.filter(d => d.evidence_status === "needs_review").length ?? 0;
+  function onReplacementSelected(file: File | undefined) {
+    if (file && replacementDocumentId) replaceFile.mutate({ id: replacementDocumentId, data: { file } });
+    if (replacementInput.current) replacementInput.current.value = "";
+  }
+
+  const hasFilters = Boolean(entityFilter || docTypeFilter || statusFilter || monthFilter);
+  const attached = documents?.filter((document) => document.evidence_status === "attached").length ?? 0;
+  const missing = documents?.filter((document) => document.evidence_status === "missing").length ?? 0;
+  const needsReview = documents?.filter((document) => document.evidence_status === "needs_review").length ?? 0;
+  const isSaving = create.isPending || upload.isPending;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <input
+        ref={replacementInput}
+        type="file"
+        accept={FILE_ACCEPT}
+        className="hidden"
+        onChange={(event) => onReplacementSelected(event.target.files?.[0])}
+      />
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Evidence Vault</h1>
-          <p className="text-sm text-muted-foreground mt-1">Document metadata, receipts, and filing evidence</p>
+          <h1 className="text-2xl font-bold">Evidence Vault</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Receipts, statements, contracts, and source records</p>
         </div>
-        <Button size="sm" onClick={() => setShowForm(!showForm)} data-testid="button-add-document">
-          <Plus className="w-3.5 h-3.5 mr-1.5" />
-          Add Document
+        <Button size="sm" onClick={() => setShowForm((open) => !open)} data-testid="button-add-document">
+          <Plus className="mr-1.5 h-4 w-4" />
+          Add evidence
         </Button>
       </div>
 
-      {(missing > 0 || needsReview > 0) && (
-        <div className="flex gap-3">
-          {missing > 0 && (
-            <Alert variant="destructive" className="flex-1">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{missing} document{missing !== 1 ? "s" : ""} flagged as missing evidence.</AlertDescription>
-            </Alert>
-          )}
-          {needsReview > 0 && (
-            <Alert className="flex-1 border-yellow-500/50 bg-yellow-50 dark:bg-yellow-900/10">
-              <AlertCircle className="h-4 w-4 text-yellow-500" />
-              <AlertDescription className="text-yellow-800 dark:text-yellow-400">{needsReview} document{needsReview !== 1 ? "s" : ""} need review.</AlertDescription>
-            </Alert>
-          )}
-        </div>
-      )}
+      <div className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3">
+        {[
+          { label: "Verified files", value: attached, icon: FileCheck2, tone: "text-emerald-400" },
+          { label: "Missing", value: missing, icon: AlertCircle, tone: missing ? "text-red-400" : "text-muted-foreground" },
+          { label: "Needs review", value: needsReview, icon: RefreshCw, tone: needsReview ? "text-amber-400" : "text-muted-foreground" },
+        ].map(({ label, value, icon: Icon, tone }) => (
+          <div key={label} className="flex items-center gap-3 bg-card px-4 py-3">
+            <Icon className={`h-4 w-4 ${tone}`} />
+            <div>
+              <div className="font-mono text-lg font-semibold leading-none">{value}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {showForm && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Add Document</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Add evidence</CardTitle></CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   <FormField control={form.control} name="document_type" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Document Type</FormLabel>
+                      <FormLabel>Document type</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger data-testid="select-doc-type"><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {DOC_TYPES.map(t => (
-                            <SelectItem key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+                          {DOC_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>{type.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase())}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="evidence_status" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Evidence Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger data-testid="select-status"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="metadata_only">Metadata Only</SelectItem>
-                          <SelectItem value="attached">Attached</SelectItem>
-                          <SelectItem value="missing">Missing</SelectItem>
-                          <SelectItem value="needs_review">Needs Review</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormItem>
+                    <FormLabel>File</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="file"
+                        accept={FILE_ACCEPT}
+                        onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                        data-testid="input-evidence-file"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   <FormField control={form.control} name="entity_id" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Entity <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                      <FormLabel>Company</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger data-testid="select-entity"><SelectValue placeholder="Any entity" /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger data-testid="select-entity"><SelectValue placeholder="No company" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="__none__">No entity</SelectItem>
-                          {entities?.map(e => <SelectItem key={e.id} value={e.id}>{e.display_name}</SelectItem>)}
+                          <SelectItem value="__none__">No company</SelectItem>
+                          {entities?.map((entity) => <SelectItem key={entity.id} value={entity.id}>{entity.display_name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -206,14 +295,14 @@ export default function Evidence() {
                   )} />
                   <FormField control={form.control} name="transaction_id" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Transaction <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                      <FormLabel>Transaction</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger data-testid="select-transaction"><SelectValue placeholder="No transaction" /></SelectTrigger></FormControl>
                         <SelectContent>
                           <SelectItem value="__none__">No transaction</SelectItem>
-                          {transactions?.slice(0, 50).map(t => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {formatDate(t.transaction_date)} · {t.description?.slice(0, 40)}
+                          {transactions?.slice(0, 100).map((transaction) => (
+                            <SelectItem key={transaction.id} value={transaction.id}>
+                              {formatDate(transaction.transaction_date)} · {transaction.description.slice(0, 48)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -222,34 +311,28 @@ export default function Evidence() {
                     </FormItem>
                   )} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="file_name" render={({ field }) => (
+                <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+                  <FormField control={form.control} name="period_month" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>File Name <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                      <FormControl><Input placeholder="receipt_openai_may.pdf" {...field} data-testid="input-file-name" /></FormControl>
+                      <FormLabel>Period month</FormLabel>
+                      <FormControl><Input type="month" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="period_month" render={({ field }) => (
+                  <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Period Month <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                      <FormControl>
-                        <Input type="month" {...field} onChange={e => field.onChange(e.target.value)} />
-                      </FormControl>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl><Textarea rows={2} {...field} data-testid="input-description" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                 </div>
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                    <FormControl><Textarea rows={2} placeholder="Notes about this document" {...field} data-testid="input-description" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="flex gap-3 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                  <Button type="submit" disabled={create.isPending}>{create.isPending ? "Saving..." : "Save Document"}</Button>
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={resetCreateForm}>Cancel</Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {selectedFile ? <Upload className="mr-1.5 h-4 w-4" /> : <Paperclip className="mr-1.5 h-4 w-4" />}
+                    {isSaving ? "Saving..." : selectedFile ? "Upload evidence" : "Save metadata"}
+                  </Button>
                 </div>
               </form>
             </Form>
@@ -257,114 +340,139 @@ export default function Evidence() {
         </Card>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-        <Select value={entityFilter || "__all__"} onValueChange={v => setEntityFilter(v === "__all__" ? "" : v)}>
-          <SelectTrigger className="w-36 h-8 text-sm" data-testid="select-entity-filter"><SelectValue placeholder="All Entities" /></SelectTrigger>
+      <div className="flex flex-wrap items-center gap-2">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <Select value={entityFilter || "__all__"} onValueChange={(value) => setEntityFilter(value === "__all__" ? "" : value)}>
+          <SelectTrigger className="h-8 w-40 text-sm"><SelectValue placeholder="All companies" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Entities</SelectItem>
-            {entities?.map(e => <SelectItem key={e.id} value={e.id}>{e.display_name}</SelectItem>)}
+            <SelectItem value="__all__">All companies</SelectItem>
+            {entities?.map((entity) => <SelectItem key={entity.id} value={entity.id}>{entity.display_name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={docTypeFilter || "__all__"} onValueChange={v => setDocTypeFilter(v === "__all__" ? "" : v)}>
-          <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="All Types" /></SelectTrigger>
+        <Select value={docTypeFilter || "__all__"} onValueChange={(value) => setDocTypeFilter(value === "__all__" ? "" : value)}>
+          <SelectTrigger className="h-8 w-40 text-sm"><SelectValue placeholder="All types" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Types</SelectItem>
-            {DOC_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+            <SelectItem value="__all__">All types</SelectItem>
+            {DOC_TYPES.map((type) => <SelectItem key={type} value={type}>{type.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase())}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={statusFilter || "__all__"} onValueChange={v => setStatusFilter(v === "__all__" ? "" : v)}>
-          <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+        <Select value={statusFilter || "__all__"} onValueChange={(value) => setStatusFilter(value === "__all__" ? "" : value)}>
+          <SelectTrigger className="h-8 w-40 text-sm"><SelectValue placeholder="All statuses" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Statuses</SelectItem>
-            <SelectItem value="metadata_only">Metadata Only</SelectItem>
-            <SelectItem value="attached">Attached</SelectItem>
-            <SelectItem value="missing">Missing</SelectItem>
-            <SelectItem value="needs_review">Needs Review</SelectItem>
+            <SelectItem value="__all__">All statuses</SelectItem>
+            <SelectItem value="attached">Verified file</SelectItem>
+            <SelectItem value="metadata_only">Metadata only</SelectItem>
+            <SelectItem value="missing">File missing</SelectItem>
+            <SelectItem value="needs_review">Needs review</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          type="month"
-          className="h-8 text-sm w-36"
-          value={monthFilter}
-          onChange={e => setMonthFilter(e.target.value)}
-          placeholder="Period month"
-        />
+        <Input type="month" className="h-8 w-40 text-sm" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} />
         {hasFilters && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={() => { setEntityFilter(""); setDocTypeFilter(""); setStatusFilter(""); setMonthFilter(""); }}>
-            <X className="w-3 h-3" />Clear filters
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setEntityFilter(""); setDocTypeFilter(""); setStatusFilter(""); setMonthFilter(""); }}>
+            <X className="mr-1 h-4 w-4" />Clear
           </Button>
         )}
-        {documents !== undefined && (
-          <span className="text-xs text-muted-foreground ml-auto">{documents.length} document{documents.length !== 1 ? "s" : ""}</span>
-        )}
+        {documents && <span className="ml-auto text-xs text-muted-foreground">{documents.length} record{documents.length === 1 ? "" : "s"}</span>}
       </div>
 
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Failed to load documents.</AlertDescription>
+          <AlertDescription>{errorMessage(error)}</AlertDescription>
         </Alert>
       )}
 
       {isLoading ? (
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-52 w-full" />
       ) : !documents?.length ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Files className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">{hasFilters ? "No documents match the current filters." : "No documents recorded yet."}</p>
-          </CardContent>
-        </Card>
+        <div className="border-y border-border py-16 text-center">
+          <Files className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">{hasFilters ? "No evidence matches these filters." : "No evidence has been recorded."}</p>
+        </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm" data-testid="table-documents">
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full min-w-[900px] text-sm" data-testid="table-documents">
             <thead>
-              <tr className="bg-muted/50 border-b border-border">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">File / Description</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Entity</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Period</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Uploaded</th>
+              <tr className="border-b border-border bg-muted/40">
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-muted-foreground">Evidence</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-muted-foreground">Company</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-muted-foreground">Period</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-muted-foreground">Status</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-muted-foreground">Added</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {documents.map(doc => (
-                <tr key={doc.id} className="border-b border-border last:border-0 hover:bg-muted/20" data-testid={`row-doc-${doc.id}`}>
-                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {doc.document_type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                  </td>
+              {documents.map((document) => (
+                <tr key={document.id} className="border-b border-border last:border-0 hover:bg-muted/20" data-testid={`row-doc-${document.id}`}>
                   <td className="px-4 py-3">
-                    {doc.file_name && <div className="font-medium text-xs font-mono">{doc.file_name}</div>}
-                    {doc.description && <div className="text-xs text-muted-foreground">{doc.description}</div>}
-                    {!doc.file_name && !doc.description && <span className="text-muted-foreground/50 text-xs">—</span>}
+                    <div className="font-medium">{document.file_name ?? document.document_type.replace(/_/g, " ")}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{document.document_type.replace(/_/g, " ")}</span>
+                      {document.file_size_bytes != null && <span className="font-mono">{formatBytes(document.file_size_bytes)}</span>}
+                    </div>
+                    {document.description && <div className="mt-1 max-w-md truncate text-xs text-muted-foreground">{document.description}</div>}
                   </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{document.entity_display_name ?? "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{document.period_month?.slice(0, 7) ?? "—"}</td>
                   <td className="px-4 py-3">
-                    {doc.entity_display_name ? (
-                      <span className="text-xs text-muted-foreground">{doc.entity_display_name}</span>
-                    ) : <span className="text-muted-foreground/40 text-xs">—</span>}
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-medium ${EVIDENCE_STATUS_LABEL[document.evidence_status]?.className}`}>
+                      {EVIDENCE_STATUS_LABEL[document.evidence_status]?.label ?? document.evidence_status}
+                    </span>
                   </td>
-                  <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
-                    {doc.period_month ? doc.period_month.slice(0, 7) : "—"}
-                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDate(document.uploaded_at)}</td>
                   <td className="px-4 py-3">
-                    <button
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${EVIDENCE_STATUS_LABEL[doc.evidence_status]?.className}`}
-                      onClick={() => cycleStatus(doc.id, doc.evidence_status)}
-                      title="Click to cycle status"
-                    >
-                      {EVIDENCE_STATUS_LABEL[doc.evidence_status]?.label}
-                    </button>
+                    <div className="flex justify-end gap-1.5">
+                      {document.has_file && (
+                        <>
+                          <Button variant="outline" size="sm" className="h-8" asChild>
+                            <a href={`/api/documents/${document.id}/content`} target="_blank" rel="noreferrer"><Eye className="mr-1 h-4 w-4" />Preview</a>
+                          </Button>
+                          <Button variant="outline" size="icon" className="h-8 w-8" asChild title="Download">
+                            <a href={`/api/documents/${document.id}/content?download=true`}><Download className="h-4 w-4" /></a>
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => beginReplacement(document.id)}
+                        disabled={replaceFile.isPending && replacementDocumentId === document.id}
+                      >
+                        <RefreshCw className="mr-1 h-4 w-4" />{document.has_file ? "Replace" : "Attach"}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setArchiveTarget(document)} title="Archive">
+                        <Archive className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{formatDate(doc.uploaded_at)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <AlertDialog open={Boolean(archiveTarget)} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this evidence?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The record and attached file will be retained and removed from the active Evidence Vault.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => archiveTarget && archive.mutate({ id: archiveTarget.id })}
+              disabled={archive.isPending}
+            >
+              Archive evidence
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

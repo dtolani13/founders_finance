@@ -10,6 +10,7 @@ import {
   useCloseEntity,
   useArchiveEntity,
   useReopenEntity,
+  getEntityClosureAssessment,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -166,6 +167,7 @@ function EntityForm({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
   const [archiveUntil, setArchiveUntil] = useState("");
   const [archiveReason, setArchiveReason] = useState("");
+  const [assessingLifecycle, setAssessingLifecycle] = useState(false);
   const isPersonal = entity.short_code === "PERSONAL";
   const isActive = entity.lifecycle_status === "active" && entity.is_active;
   const isClosed = entity.lifecycle_status === "closed";
@@ -251,13 +253,29 @@ function EntityForm({ entity }: { entity: Entity }) {
     };
   }
 
-  function handleClose() {
-    if (!window.confirm(`Close ${entity.display_name}? It will disappear from active workflows, but all financial records stay preserved.`)) return;
+  async function confirmLifecycle(action: "close" | "archive") {
+    setAssessingLifecycle(true);
+    try {
+      const assessment = await getEntityClosureAssessment(entity.id);
+      const warningText = assessment.warnings.length
+        ? `\n\nReview before continuing:\n- ${assessment.warnings.join("\n- ")}`
+        : "\n\nNo open balance or record warnings were found.";
+      return window.confirm(`${action === "close" ? "Close" : "Archive"} ${entity.display_name}? All financial records remain preserved.${warningText}`);
+    } catch {
+      toast({ title: "Closure review could not be loaded", variant: "destructive" });
+      return false;
+    } finally {
+      setAssessingLifecycle(false);
+    }
+  }
+
+  async function handleClose() {
+    if (!await confirmLifecycle("close")) return;
     closeEntity.mutate({ id: entity.id, data: lifecyclePayload() });
   }
 
-  function handleArchive() {
-    if (!window.confirm(`Archive ${entity.display_name}? This preserves the company for recordkeeping and keeps it out of active workflows.`)) return;
+  async function handleArchive() {
+    if (!await confirmLifecycle("archive")) return;
     archiveEntity.mutate({ id: entity.id, data: lifecyclePayload() });
   }
 
@@ -394,13 +412,13 @@ function EntityForm({ entity }: { entity: Entity }) {
                     </Button>
                   )}
                   {isActive && (
-                    <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={closeEntity.isPending}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void handleClose()} disabled={closeEntity.isPending || assessingLifecycle}>
                       <LockKeyhole className="h-4 w-4" />
                       {closeEntity.isPending ? "Closing..." : "Close Company"}
                     </Button>
                   )}
                   {!isArchived && (
-                    <Button type="button" variant="destructive" size="sm" onClick={handleArchive} disabled={archiveEntity.isPending}>
+                    <Button type="button" variant="destructive" size="sm" onClick={() => void handleArchive()} disabled={archiveEntity.isPending || assessingLifecycle}>
                       <Archive className="h-4 w-4" />
                       {archiveEntity.isPending ? "Archiving..." : "Archive"}
                     </Button>

@@ -9,6 +9,8 @@ type ExportType =
   | "expenses_by_entity"
   | "expenses_by_category"
   | "owner_contributions"
+  | "owner_draws"
+  | "company_retention"
   | "reimbursements"
   | "intercompany_balances"
   | "tax_reserve_activity"
@@ -30,6 +32,8 @@ const EXPORT_TYPES: { value: ExportType; label: string; description: string; ent
   { value: "expenses_by_entity", label: "Expenses by Entity", description: "Allocated expense amounts per entity", entityFilter: true },
   { value: "expenses_by_category", label: "Expenses by Category", description: "Expense allocations grouped by category", entityFilter: true },
   { value: "owner_contributions", label: "Owner Contributions", description: "Capital contributions and owner loans", entityFilter: true, monthFilter: true },
+  { value: "owner_draws", label: "Owner Draws", description: "Owner distributions linked to posted journals", entityFilter: true, monthFilter: true },
+  { value: "company_retention", label: "Company Retention", description: "Closed and archived companies with recordkeeping dates" },
   { value: "reimbursements", label: "Reimbursements", description: "All reimbursement requests and status", entityFilter: true },
   { value: "intercompany_balances", label: "Intercompany Balances", description: "Intercompany payables and receivables", entityFilter: true },
   { value: "tax_reserve_activity", label: "Tax Reserve Activity", description: "Reserve rules and balances", entityFilter: true },

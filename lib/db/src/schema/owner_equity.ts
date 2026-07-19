@@ -28,6 +28,7 @@ export const owner_draws = pgTable("owner_draws", {
   entity_id: uuid("entity_id").references(() => entities.id).notNull(),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   memo: text("memo"),
+  draw_date: date("draw_date").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   check("owner_draws_amount_positive", sql`${table.amount} > 0`),

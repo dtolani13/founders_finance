@@ -5,6 +5,7 @@ import {
   intercompany_links,
   monthly_close_periods,
   owner_contributions,
+  owner_draws,
   reconciliation_matches,
   reimbursement_requests,
   statement_lines,
@@ -255,6 +256,118 @@ export async function settleReimbursement(
   });
 }
 
+export async function waiveReimbursement(
+  reimbursementId: string,
+  input: { effective_date?: string; memo: string },
+) {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(reimbursement_requests).where(eq(reimbursement_requests.id, reimbursementId));
+    const reimbursement = rows[0];
+    if (!reimbursement) throw new FinancialOperationError("Reimbursement not found.", 404, "REIMBURSEMENT_NOT_FOUND");
+    if (reimbursement.status !== "pending") {
+      throw new FinancialOperationError("This reimbursement has already been processed.", 409, "REIMBURSEMENT_ALREADY_PROCESSED");
+    }
+    const operationDate = validDate(input.effective_date ?? today(), "Waiver date");
+    await requireActiveEntities(tx, [reimbursement.owed_by_entity_id, reimbursement.owed_to_entity_id]);
+    await requireOpenPeriod(tx, [reimbursement.owed_by_entity_id, reimbursement.owed_to_entity_id], operationDate);
+    const amount = amountString(reimbursement.amount);
+    const [transaction] = await tx.insert(transactions).values({
+      transaction_date: operationDate,
+      transaction_type: "adjustment",
+      description: "Reimbursement obligation waived",
+      total_amount: amount,
+      status: "posted",
+      is_balanced: true,
+      business_purpose: input.memo,
+    }).returning();
+    const lines = await tx.insert(transaction_lines).values([
+      { transaction_id: transaction.id, entity_id: reimbursement.owed_by_entity_id, debit: amount, credit: "0", memo: "Release reimbursement payable" },
+      { transaction_id: transaction.id, entity_id: reimbursement.owed_by_entity_id, debit: "0", credit: amount, memo: "Debt waiver adjustment" },
+      { transaction_id: transaction.id, entity_id: reimbursement.owed_to_entity_id, debit: amount, credit: "0", memo: "Reimbursement write-off" },
+      { transaction_id: transaction.id, entity_id: reimbursement.owed_to_entity_id, debit: "0", credit: amount, memo: "Release reimbursement receivable" },
+    ]).returning();
+    const updated = await tx.update(reimbursement_requests).set({
+      status: "waived",
+      paid_transaction_id: transaction.id,
+      memo: input.memo,
+      updated_at: new Date(),
+    }).where(and(eq(reimbursement_requests.id, reimbursementId), eq(reimbursement_requests.status, "pending"))).returning();
+    if (!updated.length) throw new FinancialOperationError("This reimbursement was processed by another request.", 409, "REIMBURSEMENT_ALREADY_PROCESSED");
+    await writeAuditLog({
+      tableName: "reimbursement_requests",
+      recordId: reimbursementId,
+      action: "waive",
+      previousValue: reimbursement,
+      newValue: { reimbursement: updated[0], transaction, lines },
+      memo: input.memo,
+    }, tx);
+    return updated[0];
+  });
+}
+
+export async function convertReimbursementToContribution(
+  reimbursementId: string,
+  input: { effective_date?: string; memo: string },
+) {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(reimbursement_requests).where(eq(reimbursement_requests.id, reimbursementId));
+    const reimbursement = rows[0];
+    if (!reimbursement) throw new FinancialOperationError("Reimbursement not found.", 404, "REIMBURSEMENT_NOT_FOUND");
+    if (reimbursement.status !== "pending") {
+      throw new FinancialOperationError("This reimbursement has already been processed.", 409, "REIMBURSEMENT_ALREADY_PROCESSED");
+    }
+    const creditorRows = await tx.select().from(entities).where(eq(entities.id, reimbursement.owed_to_entity_id));
+    if (creditorRows[0]?.short_code !== "PERSONAL") {
+      throw new FinancialOperationError(
+        "Only reimbursements owed to the Personal entity can be converted to an owner contribution.",
+        409,
+        "REIMBURSEMENT_NOT_OWNER_FUNDED",
+      );
+    }
+    const operationDate = validDate(input.effective_date ?? today(), "Conversion date");
+    const [business] = await requireActiveEntities(tx, [reimbursement.owed_by_entity_id]);
+    await requireOpenPeriod(tx, [business.id], operationDate);
+    const amount = amountString(reimbursement.amount);
+    const [transaction] = await tx.insert(transactions).values({
+      transaction_date: operationDate,
+      transaction_type: "owner_contribution",
+      description: `Reimbursement converted to owner capital for ${business.display_name}`,
+      total_amount: amount,
+      status: "posted",
+      is_balanced: true,
+      business_purpose: input.memo,
+    }).returning();
+    const lines = await tx.insert(transaction_lines).values([
+      { transaction_id: transaction.id, entity_id: business.id, debit: amount, credit: "0", memo: "Release reimbursement payable" },
+      { transaction_id: transaction.id, entity_id: business.id, debit: "0", credit: amount, memo: "Owner capital contribution" },
+    ]).returning();
+    const [contribution] = await tx.insert(owner_contributions).values({
+      transaction_id: transaction.id,
+      entity_id: business.id,
+      amount,
+      contribution_type: "capital_contribution",
+      memo: input.memo,
+      contribution_date: operationDate,
+    }).returning();
+    const updated = await tx.update(reimbursement_requests).set({
+      status: "converted",
+      paid_transaction_id: transaction.id,
+      memo: input.memo,
+      updated_at: new Date(),
+    }).where(and(eq(reimbursement_requests.id, reimbursementId), eq(reimbursement_requests.status, "pending"))).returning();
+    if (!updated.length) throw new FinancialOperationError("This reimbursement was processed by another request.", 409, "REIMBURSEMENT_ALREADY_PROCESSED");
+    await writeAuditLog({
+      tableName: "reimbursement_requests",
+      recordId: reimbursementId,
+      action: "convert_to_contribution",
+      previousValue: reimbursement,
+      newValue: { reimbursement: updated[0], contribution, transaction, lines },
+      memo: input.memo,
+    }, tx);
+    return updated[0];
+  });
+}
+
 export async function createOwnerContribution(input: {
   entity_id: string;
   amount: number;
@@ -313,6 +426,62 @@ export async function createOwnerContribution(input: {
   });
 }
 
+export async function createOwnerDraw(input: {
+  entity_id: string;
+  amount: number;
+  memo?: string | null;
+  draw_date: string;
+}) {
+  return db.transaction(async (tx) => {
+    const [entity] = await requireActiveEntities(tx, [input.entity_id]);
+    const drawDate = validDate(input.draw_date, "Draw date");
+    await requireOpenPeriod(tx, [input.entity_id], drawDate);
+    const checkingAccount = await requireCheckingAccount(tx, input.entity_id);
+    const amount = amountString(input.amount);
+    const [transaction] = await tx.insert(transactions).values({
+      transaction_date: drawDate,
+      transaction_type: "owner_draw",
+      description: `Owner draw from ${entity.display_name}`,
+      total_amount: amount,
+      status: "posted",
+      is_balanced: true,
+      business_purpose: input.memo ?? null,
+    }).returning();
+    const lines = await tx.insert(transaction_lines).values([
+      {
+        transaction_id: transaction.id,
+        entity_id: input.entity_id,
+        debit: amount,
+        credit: "0",
+        memo: "Owner equity draw",
+      },
+      {
+        transaction_id: transaction.id,
+        entity_id: input.entity_id,
+        account_id: checkingAccount.id,
+        debit: "0",
+        credit: amount,
+        memo: "Cash paid to owner",
+      },
+    ]).returning();
+    const [draw] = await tx.insert(owner_draws).values({
+      transaction_id: transaction.id,
+      entity_id: input.entity_id,
+      amount,
+      memo: input.memo ?? null,
+      draw_date: drawDate,
+    }).returning();
+    await writeAuditLog({
+      tableName: "owner_draws",
+      recordId: draw.id,
+      action: "create",
+      newValue: { draw, transaction, lines },
+      memo: input.memo ?? "Owner draw recorded.",
+    }, tx);
+    return { draw, entity };
+  });
+}
+
 export async function matchStatementLine(
   statementLineId: string,
   input: { transaction_id: string; match_type: string },
@@ -323,6 +492,9 @@ export async function matchStatementLine(
       .where(eq(statement_lines.id, statementLineId));
     const record = lines[0];
     if (!record) throw new FinancialOperationError("Statement line not found.", 404, "STATEMENT_LINE_NOT_FOUND");
+    if (record.statement.archived_at) {
+      throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
+    }
     if (record.line.status === "matched" || record.line.matched_transaction_id) {
       throw new FinancialOperationError("This statement line is already matched.", 409, "STATEMENT_LINE_ALREADY_MATCHED");
     }
@@ -370,6 +542,30 @@ export async function matchStatementLine(
       memo: "Statement line matched to posted transaction.",
     }, tx);
     return { line: updated[0], transaction };
+  });
+}
+
+export async function archiveStatement(statementId: string) {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(statements).where(eq(statements.id, statementId));
+    const statement = rows[0];
+    if (!statement) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
+    if (statement.archived_at) return statement;
+
+    const archivedAt = new Date();
+    const [archived] = await tx.update(statements)
+      .set({ archived_at: archivedAt, updated_at: archivedAt })
+      .where(eq(statements.id, statementId))
+      .returning();
+    await writeAuditLog({
+      tableName: "statements",
+      recordId: statementId,
+      action: "archive",
+      previousValue: statement,
+      newValue: archived,
+      memo: "Statement archived; statement lines and reconciliation history retained.",
+    }, tx);
+    return archived;
   });
 }
 

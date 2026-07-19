@@ -1,5 +1,5 @@
-import { accounts, db, entities } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { accounts, db, documents, entities, intercompany_links, reimbursement_requests, statement_lines, statements } from "@workspace/db";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { writeAuditLog } from "../lib/audit";
 
 export class CompanyLifecycleError extends Error {
@@ -81,6 +81,54 @@ export async function createCompany(input: {
     }, tx);
     return company;
   });
+}
+
+export async function assessCompanyClosure(companyId: string) {
+  const companyRows = await db.select().from(entities).where(eq(entities.id, companyId));
+  const company = companyRows[0];
+  if (!company) throw new CompanyLifecycleError("Company not found.", 404, "COMPANY_NOT_FOUND");
+  const companyAccounts = await db.select().from(accounts).where(eq(accounts.entity_id, companyId));
+  const nonzeroAccounts = companyAccounts.filter((account) => Math.abs(Number(account.current_balance)) >= 0.01);
+  const openIntercompany = await db.select().from(intercompany_links).where(and(
+    or(eq(intercompany_links.owing_entity_id, companyId), eq(intercompany_links.owed_entity_id, companyId)),
+    inArray(intercompany_links.status, ["open", "partially_paid"]),
+  ));
+  const openReimbursements = await db.select().from(reimbursement_requests).where(and(
+    or(eq(reimbursement_requests.owed_by_entity_id, companyId), eq(reimbursement_requests.owed_to_entity_id, companyId)),
+    inArray(reimbursement_requests.status, ["pending", "partially_paid"]),
+  ));
+  const accountIds = companyAccounts.map((account) => account.id);
+  const companyStatements = accountIds.length
+    ? await db.select().from(statements).where(inArray(statements.account_id, accountIds))
+    : [];
+  const statementIds = companyStatements.filter((statement) => !statement.archived_at).map((statement) => statement.id);
+  const unreconciledLines = statementIds.length
+    ? await db.select().from(statement_lines).where(and(
+      inArray(statement_lines.statement_id, statementIds),
+      inArray(statement_lines.status, ["unmatched", "needs_review"]),
+    ))
+    : [];
+  const evidenceIssues = await db.select().from(documents).where(and(
+    eq(documents.entity_id, companyId),
+    inArray(documents.evidence_status, ["missing", "needs_review", "metadata_only"]),
+  ));
+  const warnings = [
+    nonzeroAccounts.length ? `${nonzeroAccounts.length} account${nonzeroAccounts.length === 1 ? " has" : "s have"} a non-zero balance.` : null,
+    openIntercompany.length ? `${openIntercompany.length} intercompany balance${openIntercompany.length === 1 ? " is" : "s are"} still open.` : null,
+    openReimbursements.length ? `${openReimbursements.length} reimbursement${openReimbursements.length === 1 ? " is" : "s are"} still pending.` : null,
+    unreconciledLines.length ? `${unreconciledLines.length} statement line${unreconciledLines.length === 1 ? " needs" : "s need"} reconciliation.` : null,
+    evidenceIssues.length ? `${evidenceIssues.length} evidence record${evidenceIssues.length === 1 ? " needs" : "s need"} attention.` : null,
+  ].filter((warning): warning is string => Boolean(warning));
+  return {
+    company_id: companyId,
+    can_close: true,
+    warnings,
+    nonzero_accounts: nonzeroAccounts.map((account) => ({ id: account.id, name: account.name, balance: Number(account.current_balance) })),
+    open_intercompany_count: openIntercompany.length,
+    open_reimbursement_count: openReimbursements.length,
+    unreconciled_line_count: unreconciledLines.length,
+    evidence_issue_count: evidenceIssues.length,
+  };
 }
 
 async function transitionCompany(

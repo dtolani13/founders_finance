@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   archiveCompany,
+  assessCompanyClosure,
   closeCompany,
   CompanyLifecycleError,
   createCompany,
@@ -36,6 +37,16 @@ router.get("/:id", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to get entity");
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/:id/closure-assessment", async (req, res) => {
+  try {
+    res.json(await assessCompanyClosure(req.params.id));
+  } catch (err) {
+    if (err instanceof CompanyLifecycleError) return res.status(err.statusCode).json({ error: err.message, code: err.code });
+    req.log.error({ err }, "Failed to assess company closure");
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

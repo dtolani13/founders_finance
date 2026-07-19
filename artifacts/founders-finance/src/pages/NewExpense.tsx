@@ -58,9 +58,9 @@ export default function NewExpense() {
   const [allocError, setAllocError] = useState<string | null>(null);
 
   const { data: entities } = useListEntities(undefined, { query: { queryKey: getListEntitiesQueryKey() } });
-  const { data: categories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
-  const { data: vendors } = useListVendors({ query: { queryKey: getListVendorsQueryKey() } });
-  const { data: presets } = useListAllocationPresets({ query: { queryKey: getListAllocationPresetsQueryKey() } });
+  const { data: categories } = useListCategories(undefined, { query: { queryKey: getListCategoriesQueryKey() } });
+  const { data: vendors } = useListVendors(undefined, { query: { queryKey: getListVendorsQueryKey() } });
+  const { data: presets } = useListAllocationPresets(undefined, { query: { queryKey: getListAllocationPresetsQueryKey() } });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
