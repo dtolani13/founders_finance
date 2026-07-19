@@ -28,7 +28,7 @@ Last reviewed: 2026-07-18. `MASTER_TODO.md` is authoritative for priority and ac
 | Reimbursements | Complete | Pay, waive, and convert-to-contribution outcomes |
 | Tax reserve | Complete advisory flow | Rules and transfer suggestions; no automatic bank transfer |
 | Evidence workspace | Complete | Upload, inspect, download, replace, archive, missing/tamper state |
-| Statements | Partial | Create, manual lines, reconcile, archive; CSV import and assisted matching remain |
+| Statements | Complete | Create, manual lines, bounded mapped CSV import, duplicate controls, suggested/manual reconciliation, archive |
 | Monthly close | Complete | Checklist, close, correction-memo reopen, closed-period enforcement |
 | Audit viewer | Complete | Read-only filters and before/after inspection |
 | Exports | Substantial | Ledger, entity/category, equity, reimbursement, intercompany, evidence, close, reconciliation, owner draw, retention |
@@ -47,7 +47,6 @@ Last reviewed: 2026-07-18. `MASTER_TODO.md` is authoritative for priority and ac
 
 ## Immediate Build Order
 
-1. Statement CSV preview/import, duplicate detection, transactional rollback, and confirmation-only candidate matching.
-2. Intercompany reversal and settlement-account selection.
-3. Export fixtures and critical frontend workflow tests.
-4. Accessibility, packaging, error recovery, and final authenticated responsive verification.
+1. Intercompany reversal and settlement-account selection.
+2. Export fixtures and critical frontend workflow tests.
+3. Accessibility, packaging, error recovery, and final authenticated responsive verification.

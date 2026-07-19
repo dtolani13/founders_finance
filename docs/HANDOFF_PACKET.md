@@ -19,7 +19,7 @@ It is record-keeping software, not tax filing, payroll, invoicing, or legal advi
 - Database migrations: seven applied, zero pending
 - Migration fingerprint: `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`
 
-The app is suitable for controlled local use after the owner unlocks it and confirms a verified backup destination. Statement lines can be entered manually. Bulk statement CSV import is the largest remaining daily-use gap.
+The app is suitable for controlled local use after the owner unlocks it and confirms a verified backup destination. Statement lines can be entered manually or through the validated CSV workflow.
 
 ## Completed In This Checkpoint
 
@@ -33,15 +33,16 @@ The app is suitable for controlled local use after the owner unlocks it and conf
 - Account, category, vendor, and allocation-preset create/edit/deactivate/reactivate management.
 - Owner-draw and company-retention exports.
 - Responsive desktop/mobile navigation and route-level bundle splitting.
+- Guided statement CSV inspection, mapping, validation, duplicate controls, atomic import, audit detail, and confirmation-only match suggestions.
 
 ## Verification Baseline
 
-- 25 authentication, backup, evidence, accounting, lifecycle, and period-control tests pass.
+- 30 authentication, backup, evidence, CSV import, accounting, lifecycle, and period-control tests pass.
 - Shared libraries, API, frontend, and scripts pass TypeScript verification.
 - API and frontend production builds pass.
 - Empty/current-copy migration acceptance converges without row loss.
 - Seven migrations are applied locally and none are pending.
-- The main frontend chunk is 362.30 kB; the prior oversized-chunk warning is gone.
+- The main frontend chunk is 362.37 kB; the prior oversized-chunk warning is gone.
 
 Vite still reports four non-blocking sourcemap-location warnings from generated UI components.
 
@@ -49,29 +50,26 @@ Vite still reports four non-blocking sourcemap-location warnings from generated 
 
 1. Follow the required double-read/double-pass protocol in `docs/MASTER_TODO.md`.
 2. Confirm `git status --short --branch`, `git log -3 --oneline`, migration status, and the test baseline.
-3. Inspect `routes/statements.ts`, `pages/Statements.tsx`, and the statement schemas.
-4. Implement statement CSV import as the next work package.
+3. Inspect `routes/intercompany.ts`, `pages/Intercompany.tsx`, and settlement services.
+4. Implement explicit settlement-account selection and reversal.
 
-## Next Work Package: Statement CSV Import
+## Next Work Package: Intercompany Completion
 
-- Add a proven CSV parser dependency without changing the workspace virtual-store layout.
-- Upload CSV to a bounded authenticated endpoint and parse quoted fields correctly.
-- Provide preview and explicit column mapping for date, description, amount/debit/credit, and optional running balance.
-- Detect duplicates against the statement and within the uploaded file.
-- Validate every row before a transactional insert; invalid input must not partially import.
-- Suggest amount/date transaction candidates but require owner confirmation before matching.
-- Add API, accounting, and UI workflow tests for mapping, duplicates, rollback, and confirmation.
+- Require explicit owing and receiving account selection when a company has multiple eligible cash accounts.
+- Preserve the current balanced, linked, duplicate-safe settlement behavior.
+- Add a dedicated reversal that creates a new balanced adjustment; never mutate or delete the original posted settlement.
+- Reopen the intercompany obligation only after the reversal journal and audit event succeed in the same transaction.
+- Test closed periods, duplicate reversals, account ownership, balance, linkage, rollback, and audit history.
 
 ## Remaining Queue
 
-1. Intercompany reversal and settlement-account selection.
-2. Deterministic export fixtures and accountant-handoff validation.
-3. Frontend tests for critical forms and destructive confirmations.
-4. Automated accessibility scan and manual keyboard pass.
-5. Supported local production startup/package procedure with readiness checks.
-6. Consistent API-down/offline/retry UX.
-7. Final mutation audit and reference-data dependency warnings.
-8. Authenticated desktop/tablet/mobile screenshot pass after the owner unlocks the browser.
+1. Deterministic export fixtures and accountant-handoff validation.
+2. Frontend tests for critical forms and destructive confirmations.
+3. Automated accessibility scan and manual keyboard pass.
+4. Supported local production startup/package procedure with readiness checks.
+5. Consistent API-down/offline/retry UX.
+6. Final mutation audit and reference-data dependency warnings.
+7. Authenticated desktop/tablet/mobile screenshot pass after the owner unlocks the browser.
 
 ## Important Code Locations
 

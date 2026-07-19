@@ -1,13 +1,156 @@
-import { Router } from "express";
+import { extname } from "node:path";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { statements, statement_lines, accounts, transactions, vendors } from "@workspace/db";
+import { statements, statement_lines, accounts, transactions, transaction_lines, vendors } from "@workspace/db";
 import { and, eq, desc, inArray, isNull } from "drizzle-orm";
+import multer from "multer";
 import { z } from "zod";
-import { archiveStatement, FinancialOperationError, matchStatementLine } from "../services/financial-operations";
+import { archiveStatement, FinancialOperationError, importStatementLines, matchStatementLine } from "../services/financial-operations";
+import {
+  inspectStatementCsv,
+  MAX_STATEMENT_CSV_BYTES,
+  parseStatementCsv,
+  statementLineFingerprint,
+  type ParsedStatementImportRow,
+} from "../services/statement-import";
 
 const router = Router();
 
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_STATEMENT_CSV_BYTES, files: 1, fields: 10, fieldSize: 16 * 1024, parts: 12 },
+  fileFilter: (_req, file, callback) => {
+    const extension = extname(file.originalname).toLowerCase();
+    const allowedMime = new Set(["text/csv", "application/csv", "application/vnd.ms-excel", "text/plain", "application/octet-stream"]);
+    if (extension !== ".csv" || !allowedMime.has(file.mimetype.toLowerCase())) {
+      callback(new Error("Choose a CSV file."));
+      return;
+    }
+    callback(null, true);
+  },
+});
+
+function receiveCsv(req: Request, res: Response, next: NextFunction) {
+  csvUpload.single("file")(req, res, (error: unknown) => {
+    if (!error) return next();
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      res.status(413).json({ error: "Statement CSV files cannot exceed 2 MB.", code: error.code });
+      return;
+    }
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid CSV upload." });
+  });
+}
+
+const importMappingSchema = z.object({
+  transaction_date_column: z.string().min(1),
+  posted_date_column: z.string().optional(),
+  description_column: z.string().min(1),
+  amount_column: z.string().optional(),
+  debit_column: z.string().optional(),
+  credit_column: z.string().optional(),
+  balance_column: z.string().optional(),
+  skip_duplicates: z.enum(["true", "false"]).optional().default("false"),
+});
+
+function mappingFrom(body: z.infer<typeof importMappingSchema>) {
+  return {
+    transactionDateColumn: body.transaction_date_column,
+    postedDateColumn: body.posted_date_column || undefined,
+    descriptionColumn: body.description_column,
+    amountColumn: body.amount_column || undefined,
+    debitColumn: body.debit_column || undefined,
+    creditColumn: body.credit_column || undefined,
+    balanceColumn: body.balance_column || undefined,
+  };
+}
+
+async function requireMutableStatement(id: string) {
+  if (!uuidRe.test(id)) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
+  const rows = await db.select().from(statements).where(eq(statements.id, id));
+  if (!rows.length) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
+  if (rows[0].archived_at) throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
+  return rows[0];
+}
+
+function uniqueImportedRows(rows: ParsedStatementImportRow[]) {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const fingerprint = statementLineFingerprint(row);
+    if (seen.has(fingerprint)) return false;
+    seen.add(fingerprint);
+    return true;
+  });
+}
+
+router.post("/:id/import/inspect", receiveCsv, async (req, res) => {
+  try {
+    const statementId = String(req.params.id);
+    await requireMutableStatement(statementId);
+    if (!req.file) return res.status(400).json({ error: "Choose a CSV file." });
+    res.json(inspectStatementCsv(req.file.buffer));
+  } catch (error) {
+    if (error instanceof FinancialOperationError) return res.status(error.statusCode).json({ error: error.message, code: error.code });
+    res.status(400).json({ error: error instanceof Error ? error.message : "Could not read the CSV file." });
+  }
+});
+
+router.post("/:id/import/preview", receiveCsv, async (req, res) => {
+  try {
+    const statementId = String(req.params.id);
+    await requireMutableStatement(statementId);
+    if (!req.file) return res.status(400).json({ error: "Choose a CSV file." });
+    const body = importMappingSchema.parse(req.body);
+    const parsed = parseStatementCsv(req.file.buffer, mappingFrom(body));
+    const existing = await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statementId));
+    const fingerprints = new Set(existing.filter((row) => row.transaction_date).map((row) => statementLineFingerprint({
+      transaction_date: row.transaction_date!,
+      description: row.description ?? "",
+      amount: Number(row.amount),
+      balance_after: row.balance_after == null ? null : Number(row.balance_after),
+    })));
+    const existingDuplicateRows = parsed.rows.filter((row) => fingerprints.has(statementLineFingerprint(row))).map((row) => row.sourceRow);
+    res.json({
+      total_rows: parsed.rows.length + parsed.errors.length,
+      valid_rows: parsed.rows.length,
+      errors: parsed.errors,
+      in_file_duplicate_rows: parsed.duplicate_rows,
+      existing_duplicate_rows: existingDuplicateRows,
+      sample_rows: parsed.rows.slice(0, 10),
+      ready_to_import: parsed.errors.length === 0,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: error.issues });
+    if (error instanceof FinancialOperationError) return res.status(error.statusCode).json({ error: error.message, code: error.code });
+    res.status(400).json({ error: error instanceof Error ? error.message : "Could not validate the CSV file." });
+  }
+});
+
+router.post("/:id/import", receiveCsv, async (req, res) => {
+  try {
+    const statementId = String(req.params.id);
+    await requireMutableStatement(statementId);
+    if (!req.file) return res.status(400).json({ error: "Choose a CSV file." });
+    const body = importMappingSchema.parse(req.body);
+    const parsed = parseStatementCsv(req.file.buffer, mappingFrom(body));
+    if (parsed.errors.length) return res.status(400).json({ error: "Fix every invalid CSV row before importing.", row_errors: parsed.errors });
+    const skipDuplicates = body.skip_duplicates === "true";
+    if (parsed.duplicate_rows.length && !skipDuplicates) {
+      return res.status(409).json({ error: "The CSV contains duplicate rows. Review or choose Skip duplicates.", duplicate_rows: parsed.duplicate_rows });
+    }
+    const result = await importStatementLines(statementId, uniqueImportedRows(parsed.rows), {
+      skipDuplicates,
+      sourceFileName: req.file.originalname,
+    });
+    res.status(201).json({ imported_count: result.inserted.length, skipped_duplicate_count: result.skipped_duplicate_count + parsed.duplicate_rows.length });
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: error.issues });
+    if (error instanceof FinancialOperationError) return res.status(error.statusCode).json({ error: error.message, code: error.code });
+    req.log.error({ error }, "Failed to import statement CSV");
+    res.status(500).json({ error: "Statement import failed without changing the statement." });
+  }
+});
 
 router.get("/", async (req, res) => {
   try {
@@ -242,6 +385,55 @@ router.post("/:id/lines", async (req, res) => {
 const matchLineSchema = z.object({
   transaction_id: z.string().uuid(),
   match_type: z.string().default("manual"),
+});
+
+router.get("/:id/candidates", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!uuidRe.test(id)) return res.status(404).json({ error: "Statement line not found" });
+    const records = await db.select({ line: statement_lines, statement: statements })
+      .from(statement_lines)
+      .innerJoin(statements, eq(statement_lines.statement_id, statements.id))
+      .where(eq(statement_lines.id, id));
+    const record = records[0];
+    if (!record) return res.status(404).json({ error: "Statement line not found" });
+    const lineDate = record.line.transaction_date ?? record.line.posted_date;
+    if (!lineDate) return res.json([]);
+    const candidates = await db.select({
+      transaction: transactions,
+      account_debit: transaction_lines.debit,
+      account_credit: transaction_lines.credit,
+      vendor_name: vendors.name,
+    }).from(transaction_lines)
+      .innerJoin(transactions, eq(transaction_lines.transaction_id, transactions.id))
+      .leftJoin(vendors, eq(transactions.vendor_id, vendors.id))
+      .where(and(
+        eq(transaction_lines.account_id, record.statement.account_id),
+        eq(transactions.status, "posted"),
+      ));
+    const targetDate = new Date(`${lineDate}T00:00:00.000Z`).getTime();
+    const targetAmount = Number(record.line.amount);
+    const ranked = candidates.map((candidate) => {
+      const candidateDate = new Date(`${candidate.transaction.transaction_date}T00:00:00.000Z`).getTime();
+      const dateDistanceDays = Math.abs(Math.round((candidateDate - targetDate) / 86_400_000));
+      const ledgerAmount = Number(candidate.account_debit) - Number(candidate.account_credit);
+      const exactAmount = Math.abs(ledgerAmount - targetAmount) < 0.005;
+      return {
+        ...candidate.transaction,
+        vendor_name: candidate.vendor_name,
+        date_distance_days: dateDistanceDays,
+        account_amount: ledgerAmount,
+        match_score: exactAmount ? Math.max(70, 100 - dateDistanceDays * 8) : 0,
+        match_reasons: exactAmount ? ["Exact account amount", dateDistanceDays === 0 ? "Same date" : `${dateDistanceDays} day${dateDistanceDays === 1 ? "" : "s"} apart`] : [],
+      };
+    }).filter((candidate) => candidate.match_score > 0 && candidate.date_distance_days <= 5)
+      .sort((left, right) => right.match_score - left.match_score)
+      .slice(0, 10);
+    res.json(ranked);
+  } catch (error) {
+    req.log.error({ error }, "Failed to find statement match candidates");
+    res.status(500).json({ error: "Could not find suggested matches." });
+  }
 });
 
 router.post("/:id/match", async (req, res) => {

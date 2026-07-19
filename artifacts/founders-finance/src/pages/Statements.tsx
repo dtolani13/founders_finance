@@ -10,6 +10,11 @@ import {
   useMatchStatementLine,
   useUpdateStatementLine,
   useArchiveStatement,
+  useInspectStatementCsv,
+  usePreviewStatementCsv,
+  useImportStatementCsv,
+  useGetStatementLineCandidates,
+  getGetStatementLineCandidatesQueryKey,
   useListTransactions, getListTransactionsQueryKey,
   useListAccounts, getListAccountsQueryKey,
 } from "@workspace/api-client-react";
@@ -22,10 +27,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { AlertCircle, Archive, FileText, Plus, ChevronDown, ChevronRight, CheckCircle, Link2, Minus, X } from "lucide-react";
-import type { StatementLine, Transaction } from "@workspace/api-client-react";
+import { AlertCircle, Archive, FileSpreadsheet, FileText, Plus, ChevronDown, ChevronRight, CheckCircle, Link2, Minus, Upload, X } from "lucide-react";
+import type { StatementCsvImportBody, StatementCsvInspection, StatementCsvPreview, StatementLine, StatementMatchCandidate, Transaction } from "@workspace/api-client-react";
 
 const STATUS_CLASS: Record<string, string> = {
   uploaded: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -67,6 +73,9 @@ function MatchDialog({ line, onClose, onMatched }: {
   const { data: transactions, isLoading } = useListTransactions({}, {
     query: { queryKey: getListTransactionsQueryKey({}) }
   });
+  const { data: candidates, isLoading: candidatesLoading } = useGetStatementLineCandidates(line.id, {
+    query: { queryKey: getGetStatementLineCandidatesQueryKey(line.id) },
+  });
 
   const match = useMatchStatementLine({
     mutation: {
@@ -83,6 +92,12 @@ function MatchDialog({ line, onClose, onMatched }: {
     match.mutate({ id: line.id, data: { transaction_id: tx.id, match_type: "manual" } });
   }
 
+  const candidateIds = new Set((candidates ?? []).map((candidate) => candidate.id));
+  const orderedTransactions = [
+    ...(candidates ?? []),
+    ...(transactions ?? []).filter((transaction) => !candidateIds.has(transaction.id)),
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-background rounded-lg shadow-xl border border-border w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -96,11 +111,11 @@ function MatchDialog({ line, onClose, onMatched }: {
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}><X className="w-3.5 h-3.5" /></Button>
         </div>
         <div className="overflow-y-auto flex-1">
-          {isLoading ? (
+          {isLoading || candidatesLoading ? (
             <div className="p-4 space-y-2">
               {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
-          ) : !transactions?.length ? (
+          ) : !orderedTransactions.length ? (
             <p className="text-sm text-muted-foreground text-center py-8">No transactions found.</p>
           ) : (
             <table className="w-full text-sm">
@@ -113,12 +128,18 @@ function MatchDialog({ line, onClose, onMatched }: {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map(tx => (
+                {orderedTransactions.map(tx => {
+                  const candidate = candidateIds.has(tx.id) ? tx as StatementMatchCandidate : null;
+                  return (
                   <tr key={tx.id} className="border-t border-border hover:bg-muted/20">
                     <td className="px-4 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">{formatDate(tx.transaction_date)}</td>
                     <td className="px-4 py-2 text-xs">
-                      <div>{tx.description}</div>
+                      <div className="flex items-center gap-2">
+                        <span>{tx.description}</span>
+                        {candidate && <Badge className="h-4 px-1.5 text-[10px]">Suggested {candidate.match_score}%</Badge>}
+                      </div>
                       {tx.vendor_name && <div className="text-muted-foreground text-xs">{tx.vendor_name}</div>}
+                      {candidate && <div className="text-[10px] text-primary">{candidate.match_reasons.join(" · ")}</div>}
                     </td>
                     <td className="px-4 py-2 text-xs font-mono text-right whitespace-nowrap">{formatCurrency(tx.total_amount)}</td>
                     <td className="px-2 py-2">
@@ -127,7 +148,8 @@ function MatchDialog({ line, onClose, onMatched }: {
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -137,10 +159,204 @@ function MatchDialog({ line, onClose, onMatched }: {
   );
 }
 
+type CsvMapping = {
+  transactionDate: string;
+  postedDate: string;
+  description: string;
+  mode: "amount" | "debit_credit";
+  amount: string;
+  debit: string;
+  credit: string;
+  balance: string;
+};
+
+const emptyCsvMapping: CsvMapping = {
+  transactionDate: "",
+  postedDate: "",
+  description: "",
+  mode: "amount",
+  amount: "",
+  debit: "",
+  credit: "",
+  balance: "",
+};
+
+function detectColumn(headers: string[], patterns: RegExp[]) {
+  return headers.find((header) => patterns.some((pattern) => pattern.test(header.toLowerCase()))) ?? "";
+}
+
+function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: string; onImported: () => void; onCancel: () => void }) {
+  const { toast } = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [inspection, setInspection] = useState<StatementCsvInspection | null>(null);
+  const [mapping, setMapping] = useState<CsvMapping>(emptyCsvMapping);
+  const [preview, setPreview] = useState<StatementCsvPreview | null>(null);
+  const [skipDuplicates, setSkipDuplicates] = useState(false);
+
+  const inspect = useInspectStatementCsv({
+    mutation: {
+      onSuccess: (result) => {
+        const amount = detectColumn(result.headers, [/^amount$/, /transaction amount/, /net amount/]);
+        const debit = detectColumn(result.headers, [/^debit$/, /withdrawal/, /money out/]);
+        const credit = detectColumn(result.headers, [/^credit$/, /deposit/, /money in/]);
+        setInspection(result);
+        setPreview(null);
+        setMapping({
+          transactionDate: detectColumn(result.headers, [/transaction date/, /^date$/, /effective date/]),
+          postedDate: detectColumn(result.headers, [/posted date/, /post date/]),
+          description: detectColumn(result.headers, [/description/, /memo/, /details/, /name/]),
+          mode: amount ? "amount" : debit && credit ? "debit_credit" : "amount",
+          amount,
+          debit,
+          credit,
+          balance: detectColumn(result.headers, [/balance/, /running balance/]),
+        });
+      },
+      onError: () => toast({ title: "Could not inspect CSV", description: "Use a valid CSV file under 2 MB.", variant: "destructive" }),
+    },
+  });
+
+  const validate = usePreviewStatementCsv({
+    mutation: {
+      onSuccess: setPreview,
+      onError: () => toast({ title: "Could not validate CSV", description: "Check the selected columns and file format.", variant: "destructive" }),
+    },
+  });
+
+  const importCsv = useImportStatementCsv({
+    mutation: {
+      onSuccess: (result) => {
+        toast({ title: `${result.imported_count} statement line${result.imported_count === 1 ? "" : "s"} imported`, description: result.skipped_duplicate_count ? `${result.skipped_duplicate_count} duplicate row${result.skipped_duplicate_count === 1 ? " was" : "s were"} skipped.` : undefined });
+        onImported();
+      },
+      onError: () => toast({ title: "Import was not applied", description: "The statement was left unchanged. Review validation and duplicate settings.", variant: "destructive" }),
+    },
+  });
+
+  function body(): StatementCsvImportBody | null {
+    if (!file || !mapping.transactionDate || !mapping.description) return null;
+    if (mapping.mode === "amount" && !mapping.amount) return null;
+    if (mapping.mode === "debit_credit" && (!mapping.debit || !mapping.credit)) return null;
+    return {
+      file,
+      transaction_date_column: mapping.transactionDate,
+      posted_date_column: mapping.postedDate || undefined,
+      description_column: mapping.description,
+      amount_column: mapping.mode === "amount" ? mapping.amount : undefined,
+      debit_column: mapping.mode === "debit_credit" ? mapping.debit : undefined,
+      credit_column: mapping.mode === "debit_credit" ? mapping.credit : undefined,
+      balance_column: mapping.balance || undefined,
+      skip_duplicates: skipDuplicates ? "true" : "false",
+    };
+  }
+
+  function chooseFile(selected: File | undefined) {
+    if (!selected) return;
+    setFile(selected);
+    setInspection(null);
+    setPreview(null);
+    setSkipDuplicates(false);
+    inspect.mutate({ id: statementId, data: { file: selected } });
+  }
+
+  const duplicateCount = (preview?.in_file_duplicate_rows.length ?? 0) + (preview?.existing_duplicate_rows.length ?? 0);
+  const canImport = Boolean(preview?.ready_to_import && (!duplicateCount || skipDuplicates));
+  const selectColumn = (label: string, value: string, onChange: (value: string) => void, optional = false) => (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium">{label}</label>
+      <Select value={value || "__none__"} onValueChange={(next) => onChange(next === "__none__" ? "" : next)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {optional && <SelectItem value="__none__">Not included</SelectItem>}
+          {!optional && <SelectItem value="__none__" disabled>Select a column</SelectItem>}
+          {inspection?.headers.map((header) => <SelectItem key={header} value={header}>{header}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  return (
+    <Card className="border-primary/40">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm"><FileSpreadsheet className="h-4 w-4 text-primary" />Import statement CSV</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Input type="file" accept=".csv,text/csv" className="h-9 max-w-sm text-xs" onChange={(event) => chooseFile(event.target.files?.[0])} />
+          <span className="text-xs text-muted-foreground">CSV only, 2 MB and 5,000 rows maximum</span>
+        </div>
+
+        {inspection && (
+          <>
+            <div className="flex items-center gap-2 text-xs"><CheckCircle className="h-4 w-4 text-emerald-500" />{inspection.row_count} data rows found in {file?.name}</div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {selectColumn("Transaction date", mapping.transactionDate, (value) => { setMapping({ ...mapping, transactionDate: value }); setPreview(null); })}
+              {selectColumn("Description", mapping.description, (value) => { setMapping({ ...mapping, description: value }); setPreview(null); })}
+              {selectColumn("Posted date", mapping.postedDate, (value) => { setMapping({ ...mapping, postedDate: value }); setPreview(null); }, true)}
+              {selectColumn("Running balance", mapping.balance, (value) => { setMapping({ ...mapping, balance: value }); setPreview(null); }, true)}
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Amount layout</label>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={mapping.mode === "amount" ? "default" : "outline"} className="h-7 text-xs" onClick={() => { setMapping({ ...mapping, mode: "amount" }); setPreview(null); }}>Single amount</Button>
+                <Button type="button" size="sm" variant={mapping.mode === "debit_credit" ? "default" : "outline"} className="h-7 text-xs" onClick={() => { setMapping({ ...mapping, mode: "debit_credit" }); setPreview(null); }}>Debit + credit</Button>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {mapping.mode === "amount" ? selectColumn("Amount", mapping.amount, (value) => { setMapping({ ...mapping, amount: value }); setPreview(null); }) : (
+                <>
+                  {selectColumn("Debit / withdrawal", mapping.debit, (value) => { setMapping({ ...mapping, debit: value }); setPreview(null); })}
+                  {selectColumn("Credit / deposit", mapping.credit, (value) => { setMapping({ ...mapping, credit: value }); setPreview(null); })}
+                </>
+              )}
+            </div>
+            <Button size="sm" variant="outline" disabled={!body() || validate.isPending} onClick={() => { const data = body(); if (data) validate.mutate({ id: statementId, data }); }}>
+              {validate.isPending ? "Validating all rows..." : "Validate and preview"}
+            </Button>
+          </>
+        )}
+
+        {preview && (
+          <div className="space-y-3 border-t border-border pt-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{preview.valid_rows} valid</Badge>
+              <Badge variant={preview.errors.length ? "destructive" : "outline"}>{preview.errors.length} errors</Badge>
+              <Badge variant={duplicateCount ? "secondary" : "outline"}>{duplicateCount} duplicates</Badge>
+            </div>
+            {preview.errors.length > 0 && (
+              <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{preview.errors.slice(0, 8).map((error) => <div key={`${error.row}-${error.message}`}>Row {error.row}: {error.message}</div>)}</AlertDescription></Alert>
+            )}
+            {duplicateCount > 0 && (
+              <div className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/5 p-3">
+                <Checkbox id={`skip-duplicates-${statementId}`} checked={skipDuplicates} onCheckedChange={(checked) => setSkipDuplicates(checked === true)} />
+                <label htmlFor={`skip-duplicates-${statementId}`} className="text-xs">Skip {duplicateCount} duplicate row{duplicateCount === 1 ? "" : "s"} and import the remaining validated rows</label>
+              </div>
+            )}
+            {preview.sample_rows.length > 0 && (
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full min-w-[620px] text-xs">
+                  <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">CSV row</th><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2 text-right">Balance</th></tr></thead>
+                  <tbody>{preview.sample_rows.map((row) => <tr key={row.sourceRow} className="border-t border-border"><td className="px-3 py-2">{row.sourceRow}</td><td className="px-3 py-2 font-mono">{row.transaction_date}</td><td className="px-3 py-2">{row.description}</td><td className="px-3 py-2 text-right font-mono">{formatCurrency(row.amount)}</td><td className="px-3 py-2 text-right font-mono">{row.balance_after == null ? "—" : formatCurrency(row.balance_after)}</td></tr>)}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+          {preview && <Button size="sm" disabled={!canImport || importCsv.isPending} onClick={() => { const data = body(); if (data) importCsv.mutate({ id: statementId, data: { ...data, skip_duplicates: skipDuplicates ? "true" : "false" } }); }}><Upload className="mr-1.5 h-4 w-4" />{importCsv.isPending ? "Importing..." : "Import validated rows"}</Button>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function StatementDetail({ statementId, onRefreshList }: { statementId: string; onRefreshList: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAddLine, setShowAddLine] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [matchingLine, setMatchingLine] = useState<StatementLine | null>(null);
 
   const { data, isLoading, error } = useGetStatement(statementId, {
@@ -219,11 +435,29 @@ function StatementDetail({ statementId, onRefreshList }: { statementId: string; 
         {isArchived ? (
           <Badge variant="outline">Archived read-only record</Badge>
         ) : (
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddLine(!showAddLine)}>
-            <Plus className="w-3 h-3 mr-1" />Add Line
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setShowCsvImport(!showCsvImport); setShowAddLine(false); }}>
+              <Upload className="w-3 h-3 mr-1" />Import CSV
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setShowAddLine(!showAddLine); setShowCsvImport(false); }}>
+              <Plus className="w-3 h-3 mr-1" />Add Line
+            </Button>
+          </div>
         )}
       </div>
+
+      {showCsvImport && (
+        <CsvImportPanel
+          statementId={statementId}
+          onCancel={() => setShowCsvImport(false)}
+          onImported={() => {
+            setShowCsvImport(false);
+            queryClient.invalidateQueries({ queryKey: getGetStatementQueryKey(statementId) });
+            queryClient.invalidateQueries({ queryKey: getListStatementsQueryKey() });
+            onRefreshList();
+          }}
+        />
+      )}
 
       {showAddLine && (
         <Card className="border-dashed">

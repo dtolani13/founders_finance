@@ -1778,6 +1778,117 @@ export const MatchStatementLineResponse = zod.object({
 
 
 /**
+ * @summary Suggest posted account transactions by exact amount and nearby date
+ */
+export const GetStatementLineCandidatesParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetStatementLineCandidatesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "transaction_date": zod.coerce.date(),
+  "transaction_type": zod.enum(['owner_contribution', 'owner_reimbursement', 'business_expense', 'shared_expense_allocation', 'intercompany_reimbursement', 'owner_draw', 'transfer', 'asset_purchase', 'revenue', 'adjustment']),
+  "description": zod.string(),
+  "vendor_id": zod.string().uuid().nullish(),
+  "vendor_name": zod.string().nullish(),
+  "total_amount": zod.number(),
+  "status": zod.enum(['draft', 'posted', 'needs_review', 'voided']),
+  "business_purpose": zod.string().nullish(),
+  "is_balanced": zod.boolean(),
+  "allocation_count": zod.number(),
+  "line_count": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}).and(zod.object({
+  "date_distance_days": zod.number(),
+  "account_amount": zod.number(),
+  "match_score": zod.number(),
+  "match_reasons": zod.array(zod.string())
+}))
+export const GetStatementLineCandidatesResponse = zod.array(GetStatementLineCandidatesResponseItem)
+
+
+/**
+ * @summary Inspect bounded CSV headers and sample rows
+ */
+export const InspectStatementCsvParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const InspectStatementCsvBody = zod.object({
+  "file": zod.instanceof(File)
+})
+
+export const InspectStatementCsvResponse = zod.object({
+  "headers": zod.array(zod.string()),
+  "row_count": zod.number(),
+  "sample_rows": zod.array(zod.record(zod.string(), zod.string()))
+})
+
+
+/**
+ * @summary Validate every mapped CSV row and identify duplicates without writing
+ */
+export const PreviewStatementCsvParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const PreviewStatementCsvBody = zod.object({
+  "file": zod.instanceof(File),
+  "transaction_date_column": zod.string(),
+  "posted_date_column": zod.string().optional(),
+  "description_column": zod.string(),
+  "amount_column": zod.string().optional(),
+  "debit_column": zod.string().optional(),
+  "credit_column": zod.string().optional(),
+  "balance_column": zod.string().optional(),
+  "skip_duplicates": zod.enum(['true', 'false']).optional()
+})
+
+export const PreviewStatementCsvResponse = zod.object({
+  "total_rows": zod.number(),
+  "valid_rows": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+})),
+  "in_file_duplicate_rows": zod.array(zod.number()),
+  "existing_duplicate_rows": zod.array(zod.number()),
+  "sample_rows": zod.array(zod.object({
+  "sourceRow": zod.number(),
+  "transaction_date": zod.coerce.date(),
+  "posted_date": zod.coerce.date().nullish(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "balance_after": zod.number().nullish()
+})),
+  "ready_to_import": zod.boolean()
+})
+
+
+/**
+ * @summary Import a fully validated CSV atomically
+ */
+export const ImportStatementCsvParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ImportStatementCsvBody = zod.object({
+  "file": zod.instanceof(File),
+  "transaction_date_column": zod.string(),
+  "posted_date_column": zod.string().optional(),
+  "description_column": zod.string(),
+  "amount_column": zod.string().optional(),
+  "debit_column": zod.string().optional(),
+  "credit_column": zod.string().optional(),
+  "balance_column": zod.string().optional(),
+  "skip_duplicates": zod.enum(['true', 'false']).optional()
+})
+
+export const ImportStatementCsvResponse = zod.void()
+
+
+/**
  * @summary Update statement line status or notes
  */
 export const UpdateStatementLineParams = zod.object({

@@ -152,15 +152,17 @@ For each bank and credit card statement for the month:
 
 1. Go to **Statements**
 2. Create a statement record: entity, account, period month
-3. Add each line from the statement: date, description, amount
-4. Do this for all active accounts:
+3. Import the bank CSV, map its columns, and review the complete validation preview. Use Add Line for isolated manual corrections.
+4. Resolve every reported invalid row. If duplicates are found, verify them before selecting Skip duplicates.
+5. Import the validated rows, then review suggested matches one at a time. Suggestions are never accepted automatically.
+6. Do this for all active accounts:
    - SM operating checking
    - SM tax reserve savings (if activity)
    - RCL operating checking
    - RCL tax reserve savings (if activity)
    - Credit cards
 
-> You can enter statements electronically by copying line items from your bank's online portal. No import automation exists — this is manual.
+> CSV imports are limited to 2 MB and 5,000 rows and accept ISO or US month/day/year dates. Keep the original bank statement as Evidence even when importing CSV activity.
 
 ---
 

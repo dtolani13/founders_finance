@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { writeAuditLog } from "../lib/audit";
+import { statementLineFingerprint, type ParsedStatementImportRow } from "./statement-import";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -566,6 +567,73 @@ export async function archiveStatement(statementId: string) {
       memo: "Statement archived; statement lines and reconciliation history retained.",
     }, tx);
     return archived;
+  });
+}
+
+export async function importStatementLines(
+  statementId: string,
+  importedRows: ParsedStatementImportRow[],
+  options: { skipDuplicates: boolean; sourceFileName: string },
+) {
+  return db.transaction(async (tx) => {
+    const records = await tx.select({ statement: statements, account: accounts })
+      .from(statements)
+      .innerJoin(accounts, eq(statements.account_id, accounts.id))
+      .where(eq(statements.id, statementId));
+    const record = records[0];
+    if (!record) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
+    if (record.statement.archived_at) throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
+    if (!record.account.is_active) throw new FinancialOperationError("The statement account is inactive.", 409, "ACCOUNT_INACTIVE");
+    await requireActiveEntities(tx, [record.account.entity_id]);
+    for (const operationDate of [...new Set(importedRows.map((row) => row.transaction_date))]) {
+      await requireOpenPeriod(tx, [record.account.entity_id], operationDate);
+    }
+
+    const existingRows = await tx.select().from(statement_lines).where(eq(statement_lines.statement_id, statementId));
+    const existingFingerprints = new Set(existingRows.filter((row) => row.transaction_date).map((row) => statementLineFingerprint({
+      transaction_date: row.transaction_date!,
+      description: row.description ?? "",
+      amount: Number(row.amount),
+      balance_after: row.balance_after == null ? null : Number(row.balance_after),
+    })));
+    const duplicateRows = importedRows.filter((row) => existingFingerprints.has(statementLineFingerprint(row)));
+    if (duplicateRows.length && !options.skipDuplicates) {
+      throw new FinancialOperationError(
+        `${duplicateRows.length} imported row${duplicateRows.length === 1 ? " matches" : "s match"} existing statement data. Review or choose Skip duplicates.`,
+        409,
+        "STATEMENT_IMPORT_DUPLICATES",
+      );
+    }
+    const rowsToInsert = importedRows.filter((row) => !existingFingerprints.has(statementLineFingerprint(row)));
+    if (!rowsToInsert.length) {
+      throw new FinancialOperationError("Every imported row is already present on this statement.", 409, "STATEMENT_IMPORT_ALL_DUPLICATES");
+    }
+
+    const inserted = await tx.insert(statement_lines).values(rowsToInsert.map((row) => ({
+      statement_id: statementId,
+      transaction_date: row.transaction_date,
+      posted_date: row.posted_date,
+      description: row.description,
+      amount: row.amount.toFixed(2),
+      balance_after: row.balance_after == null ? null : row.balance_after.toFixed(2),
+      notes: `Imported from ${options.sourceFileName}, CSV row ${row.sourceRow}.`,
+      status: "unmatched",
+    }))).returning();
+    await tx.update(statements).set({ status: "reconciling", updated_at: new Date() }).where(eq(statements.id, statementId));
+    await writeAuditLog({
+      tableName: "statements",
+      recordId: statementId,
+      action: "import_csv",
+      previousValue: { line_count: existingRows.length },
+      newValue: {
+        source_file_name: options.sourceFileName,
+        inserted_count: inserted.length,
+        skipped_duplicate_count: duplicateRows.length,
+        imported_source_rows: rowsToInsert.map((row) => row.sourceRow),
+      },
+      memo: "Statement CSV imported after full-file validation.",
+    }, tx);
+    return { inserted, skipped_duplicate_count: duplicateRows.length };
   });
 }
 

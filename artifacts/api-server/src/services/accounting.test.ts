@@ -533,6 +533,37 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       );
     });
 
+    await t.test("statement imports are atomic, duplicate-safe, and audited", async () => {
+      const [statement] = await db.insert(statements).values({
+        account_id: accountA.id,
+        statement_month: "2026-10-01",
+        status: "uploaded",
+      }).returning();
+      const importRows = [
+        { sourceRow: 2, transaction_date: "2026-10-02", posted_date: null, description: "Imported debit", amount: -18.25, balance_after: 981.75 },
+        { sourceRow: 3, transaction_date: "2026-10-03", posted_date: "2026-10-04", description: "Imported credit", amount: 40, balance_after: 1021.75 },
+      ];
+      const first = await operations.importStatementLines(statement.id, importRows, { skipDuplicates: false, sourceFileName: "october.csv" });
+      assert.equal(first.inserted.length, 2);
+      assert.equal(first.skipped_duplicate_count, 0);
+
+      await assert.rejects(
+        operations.importStatementLines(statement.id, importRows, { skipDuplicates: false, sourceFileName: "october.csv" }),
+        (error: unknown) => error instanceof operations.FinancialOperationError && error.code === "STATEMENT_IMPORT_DUPLICATES",
+      );
+      assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statement.id))).length, 2);
+
+      const withNewRow = [...importRows, { sourceRow: 4, transaction_date: "2026-10-05", posted_date: null, description: "Only new row", amount: -7.5, balance_after: 1014.25 }];
+      const skipped = await operations.importStatementLines(statement.id, withNewRow, { skipDuplicates: true, sourceFileName: "october-revised.csv" });
+      assert.equal(skipped.inserted.length, 1);
+      assert.equal(skipped.skipped_duplicate_count, 2);
+      assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statement.id))).length, 3);
+      assert.equal(
+        (await db.select().from(audit_log).where(eq(audit_log.record_id, statement.id))).filter((audit) => audit.action === "import_csv").length,
+        2,
+      );
+    });
+
     await t.test("closed periods reject settlement, reimbursement, contribution, and reconciliation writes", async () => {
       const transactionCountBefore = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(transactions);
       const [closedLink] = await db.insert(intercompany_links).values({
@@ -596,9 +627,21 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
         operations.matchStatementLine(line.id, { transaction_id: posted.id, match_type: "manual" }),
         (error: unknown) => error instanceof operations.FinancialOperationError && error.code === "PERIOD_CLOSED",
       );
+      await assert.rejects(
+        operations.importStatementLines(statement.id, [{
+          sourceRow: 2,
+          transaction_date: "2026-08-20",
+          posted_date: null,
+          description: "Closed import fixture",
+          amount: -9,
+          balance_after: null,
+        }], { skipDuplicates: false, sourceFileName: "closed.csv" }),
+        (error: unknown) => error instanceof operations.FinancialOperationError && error.code === "PERIOD_CLOSED",
+      );
       const [unchangedLine] = await db.select().from(statement_lines).where(eq(statement_lines.id, line.id));
       assert.equal(unchangedLine.status, "unmatched");
       assert.equal(unchangedLine.matched_transaction_id, null);
+      assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statement.id))).length, 1);
       const transactionCountAfter = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(transactions);
       assert.equal(transactionCountAfter[0].count, transactionCountBefore[0].count + 1);
     });

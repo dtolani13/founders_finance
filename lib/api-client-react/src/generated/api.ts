@@ -61,6 +61,7 @@ import type {
   GetEvidenceContentParams,
   GetExportParams,
   HealthStatus,
+  InspectStatementCsvBody,
   IntercompanyLink,
   ListAccountsParams,
   ListAllocationPresetsParams,
@@ -84,8 +85,13 @@ import type {
   RestoreBackupBody,
   RestoreBackupResult,
   Statement,
+  StatementCsvImportBody,
+  StatementCsvImportResult,
+  StatementCsvInspection,
+  StatementCsvPreview,
   StatementDetail,
   StatementLine,
+  StatementMatchCandidate,
   SuggestTaxTransferBody,
   TaxReserveRule,
   TaxReserveSummary,
@@ -5020,6 +5026,342 @@ export const useMatchStatementLine = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getMatchStatementLineMutationOptions(options));
+    }
+
+export const getGetStatementLineCandidatesUrl = (id: string,) => {
+
+
+
+
+  return `/api/statement-lines/${id}/candidates`
+}
+
+/**
+ * @summary Suggest posted account transactions by exact amount and nearby date
+ */
+export const getStatementLineCandidates = async (id: string, options?: RequestInit): Promise<StatementMatchCandidate[]> => {
+
+  return customFetch<StatementMatchCandidate[]>(getGetStatementLineCandidatesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStatementLineCandidatesQueryKey = (id: string,) => {
+    return [
+    `/api/statement-lines/${id}/candidates`
+    ] as const;
+    }
+
+
+export const getGetStatementLineCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof getStatementLineCandidates>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStatementLineCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStatementLineCandidatesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStatementLineCandidates>>> = ({ signal }) => getStatementLineCandidates(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStatementLineCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStatementLineCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof getStatementLineCandidates>>>
+export type GetStatementLineCandidatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Suggest posted account transactions by exact amount and nearby date
+ */
+
+export function useGetStatementLineCandidates<TData = Awaited<ReturnType<typeof getStatementLineCandidates>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStatementLineCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStatementLineCandidatesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getInspectStatementCsvUrl = (id: string,) => {
+
+
+
+
+  return `/api/statements/${id}/import/inspect`
+}
+
+/**
+ * @summary Inspect bounded CSV headers and sample rows
+ */
+export const inspectStatementCsv = async (id: string,
+    inspectStatementCsvBody: InspectStatementCsvBody, options?: RequestInit): Promise<StatementCsvInspection> => {
+    const formData = new FormData();
+formData.append(`file`, inspectStatementCsvBody.file);
+
+  return customFetch<StatementCsvInspection>(getInspectStatementCsvUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+export const getInspectStatementCsvMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inspectStatementCsv>>, TError,{id: string;data: BodyType<InspectStatementCsvBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof inspectStatementCsv>>, TError,{id: string;data: BodyType<InspectStatementCsvBody>}, TContext> => {
+
+const mutationKey = ['inspectStatementCsv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof inspectStatementCsv>>, {id: string;data: BodyType<InspectStatementCsvBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  inspectStatementCsv(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InspectStatementCsvMutationResult = NonNullable<Awaited<ReturnType<typeof inspectStatementCsv>>>
+    export type InspectStatementCsvMutationBody = BodyType<InspectStatementCsvBody>
+    export type InspectStatementCsvMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Inspect bounded CSV headers and sample rows
+ */
+export const useInspectStatementCsv = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inspectStatementCsv>>, TError,{id: string;data: BodyType<InspectStatementCsvBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof inspectStatementCsv>>,
+        TError,
+        {id: string;data: BodyType<InspectStatementCsvBody>},
+        TContext
+      > => {
+      return useMutation(getInspectStatementCsvMutationOptions(options));
+    }
+
+export const getPreviewStatementCsvUrl = (id: string,) => {
+
+
+
+
+  return `/api/statements/${id}/import/preview`
+}
+
+/**
+ * @summary Validate every mapped CSV row and identify duplicates without writing
+ */
+export const previewStatementCsv = async (id: string,
+    statementCsvImportBody: StatementCsvImportBody, options?: RequestInit): Promise<StatementCsvPreview> => {
+    const formData = new FormData();
+formData.append(`file`, statementCsvImportBody.file);
+formData.append(`transaction_date_column`, statementCsvImportBody.transaction_date_column);
+if(statementCsvImportBody.posted_date_column !== undefined) {
+ formData.append(`posted_date_column`, statementCsvImportBody.posted_date_column);
+ }
+formData.append(`description_column`, statementCsvImportBody.description_column);
+if(statementCsvImportBody.amount_column !== undefined) {
+ formData.append(`amount_column`, statementCsvImportBody.amount_column);
+ }
+if(statementCsvImportBody.debit_column !== undefined) {
+ formData.append(`debit_column`, statementCsvImportBody.debit_column);
+ }
+if(statementCsvImportBody.credit_column !== undefined) {
+ formData.append(`credit_column`, statementCsvImportBody.credit_column);
+ }
+if(statementCsvImportBody.balance_column !== undefined) {
+ formData.append(`balance_column`, statementCsvImportBody.balance_column);
+ }
+if(statementCsvImportBody.skip_duplicates !== undefined) {
+ formData.append(`skip_duplicates`, statementCsvImportBody.skip_duplicates);
+ }
+
+  return customFetch<StatementCsvPreview>(getPreviewStatementCsvUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+export const getPreviewStatementCsvMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewStatementCsv>>, TError,{id: string;data: BodyType<StatementCsvImportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewStatementCsv>>, TError,{id: string;data: BodyType<StatementCsvImportBody>}, TContext> => {
+
+const mutationKey = ['previewStatementCsv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewStatementCsv>>, {id: string;data: BodyType<StatementCsvImportBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  previewStatementCsv(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewStatementCsvMutationResult = NonNullable<Awaited<ReturnType<typeof previewStatementCsv>>>
+    export type PreviewStatementCsvMutationBody = BodyType<StatementCsvImportBody>
+    export type PreviewStatementCsvMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Validate every mapped CSV row and identify duplicates without writing
+ */
+export const usePreviewStatementCsv = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewStatementCsv>>, TError,{id: string;data: BodyType<StatementCsvImportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewStatementCsv>>,
+        TError,
+        {id: string;data: BodyType<StatementCsvImportBody>},
+        TContext
+      > => {
+      return useMutation(getPreviewStatementCsvMutationOptions(options));
+    }
+
+export const getImportStatementCsvUrl = (id: string,) => {
+
+
+
+
+  return `/api/statements/${id}/import`
+}
+
+/**
+ * @summary Import a fully validated CSV atomically
+ */
+export const importStatementCsv = async (id: string,
+    statementCsvImportBody: StatementCsvImportBody, options?: RequestInit): Promise<StatementCsvImportResult> => {
+    const formData = new FormData();
+formData.append(`file`, statementCsvImportBody.file);
+formData.append(`transaction_date_column`, statementCsvImportBody.transaction_date_column);
+if(statementCsvImportBody.posted_date_column !== undefined) {
+ formData.append(`posted_date_column`, statementCsvImportBody.posted_date_column);
+ }
+formData.append(`description_column`, statementCsvImportBody.description_column);
+if(statementCsvImportBody.amount_column !== undefined) {
+ formData.append(`amount_column`, statementCsvImportBody.amount_column);
+ }
+if(statementCsvImportBody.debit_column !== undefined) {
+ formData.append(`debit_column`, statementCsvImportBody.debit_column);
+ }
+if(statementCsvImportBody.credit_column !== undefined) {
+ formData.append(`credit_column`, statementCsvImportBody.credit_column);
+ }
+if(statementCsvImportBody.balance_column !== undefined) {
+ formData.append(`balance_column`, statementCsvImportBody.balance_column);
+ }
+if(statementCsvImportBody.skip_duplicates !== undefined) {
+ formData.append(`skip_duplicates`, statementCsvImportBody.skip_duplicates);
+ }
+
+  return customFetch<StatementCsvImportResult>(getImportStatementCsvUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+export const getImportStatementCsvMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importStatementCsv>>, TError,{id: string;data: BodyType<StatementCsvImportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importStatementCsv>>, TError,{id: string;data: BodyType<StatementCsvImportBody>}, TContext> => {
+
+const mutationKey = ['importStatementCsv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importStatementCsv>>, {id: string;data: BodyType<StatementCsvImportBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  importStatementCsv(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportStatementCsvMutationResult = NonNullable<Awaited<ReturnType<typeof importStatementCsv>>>
+    export type ImportStatementCsvMutationBody = BodyType<StatementCsvImportBody>
+    export type ImportStatementCsvMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Import a fully validated CSV atomically
+ */
+export const useImportStatementCsv = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importStatementCsv>>, TError,{id: string;data: BodyType<StatementCsvImportBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importStatementCsv>>,
+        TError,
+        {id: string;data: BodyType<StatementCsvImportBody>},
+        TContext
+      > => {
+      return useMutation(getImportStatementCsvMutationOptions(options));
     }
 
 export const getUpdateStatementLineUrl = (id: string,) => {

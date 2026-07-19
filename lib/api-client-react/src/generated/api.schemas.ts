@@ -834,6 +834,70 @@ export interface MatchStatementLineBody {
   match_type?: string;
 }
 
+export type StatementMatchCandidate = Transaction & {
+  date_distance_days: number;
+  account_amount: number;
+  match_score: number;
+  match_reasons: string[];
+};
+
+export type StatementCsvInspectionSampleRowsItem = {[key: string]: string};
+
+export interface StatementCsvInspection {
+  headers: string[];
+  row_count: number;
+  sample_rows: StatementCsvInspectionSampleRowsItem[];
+}
+
+export type StatementCsvImportBodySkipDuplicates = typeof StatementCsvImportBodySkipDuplicates[keyof typeof StatementCsvImportBodySkipDuplicates];
+
+
+export const StatementCsvImportBodySkipDuplicates = {
+  true: 'true',
+  false: 'false',
+} as const;
+
+export interface StatementCsvImportBody {
+  file: Blob;
+  transaction_date_column: string;
+  posted_date_column?: string;
+  description_column: string;
+  amount_column?: string;
+  debit_column?: string;
+  credit_column?: string;
+  balance_column?: string;
+  skip_duplicates?: StatementCsvImportBodySkipDuplicates;
+}
+
+export interface StatementCsvImportRow {
+  sourceRow: number;
+  transaction_date: string;
+  posted_date?: string | null;
+  description: string;
+  amount: number;
+  balance_after?: number | null;
+}
+
+export interface StatementCsvRowError {
+  row: number;
+  message: string;
+}
+
+export interface StatementCsvPreview {
+  total_rows: number;
+  valid_rows: number;
+  errors: StatementCsvRowError[];
+  in_file_duplicate_rows: number[];
+  existing_duplicate_rows: number[];
+  sample_rows: StatementCsvImportRow[];
+  ready_to_import: boolean;
+}
+
+export interface StatementCsvImportResult {
+  imported_count: number;
+  skipped_duplicate_count: number;
+}
+
 export type MonthlyClosePeriodStatus = typeof MonthlyClosePeriodStatus[keyof typeof MonthlyClosePeriodStatus];
 
 
@@ -1075,6 +1139,10 @@ export type ArchiveStatement200 = {
   archived: boolean;
   id: string;
   archived_at: string;
+};
+
+export type InspectStatementCsvBody = {
+  file: Blob;
 };
 
 export type ListMonthlyClosePeriodsParams = {

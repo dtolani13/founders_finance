@@ -61,7 +61,7 @@ Full operating rules are in `AGENTS.md`.
   - Acceptance: forced failures leave no partial records; posted history is immutable; closed months reject unauthorized mutations; every generated journal remains balanced and traceable.
 
 - [~] **Automated accounting and lifecycle test suite**
-  - A root `pnpm test` command covers authentication, encrypted backup primitives, secure evidence, expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation/settlement, all reimbursement outcomes, owner contributions/draws, reconciliation, monthly close/reopen, company lifecycle, rollback, idempotency, and audit logging.
+  - A root `pnpm test` command covers authentication, encrypted backup primitives, secure evidence, statement CSV parsing/import, expense creation, allocation totals, double-entry balancing, posting, voiding, closed-period guards, intercompany creation/settlement, all reimbursement outcomes, owner contributions/draws, reconciliation, monthly close/reopen, company lifecycle, rollback, idempotency, and audit logging.
   - Add frontend workflow tests for critical forms and destructive confirmations.
   - Acceptance: tests run from one documented root command and fail on known integrity regressions.
 
@@ -107,9 +107,9 @@ Full operating rules are in `AGENTS.md`.
   - Owner draw entry, validation, balanced posted journal generation, history, totals, audit, and export support are implemented.
   - Acceptance: draw appears in ledger, entity cash, owner equity reporting, and exports.
 
-- [ ] **Statement import and assisted reconciliation**
-  - Add CSV import with preview, column mapping, duplicate detection, and rollback on invalid rows.
-  - Add amount/date candidate matching requiring user confirmation.
+- [x] **Statement import and assisted reconciliation**
+  - Bounded CSV upload, header inspection, explicit column mapping, full-file preview, strict row validation, in-file/existing duplicate detection, skip-duplicate control, and atomic insertion are implemented.
+  - Exact account-amount and nearby-date candidates are ranked, but matching still requires explicit owner confirmation.
   - Acceptance: imported lines reconcile without silent auto-approval or duplicate insertion.
 
 - [~] **Export correctness and accountant handoff**
@@ -161,7 +161,7 @@ Full operating rules are in `AGENTS.md`.
 ## P3 - Future Enhancements
 
 - [ ] Receipt OCR with mandatory user review.
-- [ ] Optional bank import adapters after manual statement import is stable.
+- [ ] Optional bank import adapters after CSV import is proven in regular use.
 - [ ] Scheduled backup and close reminders.
 - [ ] Accountant read-only package or controlled export bundle.
 - [ ] Optional local encryption-at-rest design after backup, auth, and key-recovery requirements are defined.
@@ -190,13 +190,14 @@ Verified against the repository on 2026-07-18:
 - Expense graphs, transaction updates, line/allocation replacement, posting, voiding, company lifecycle, owner contributions, settlements, reimbursement payment, reconciliation, and monthly close now use transactional services with in-transaction audit writes.
 - Posted and voided transaction mutation is blocked. Closed periods reject create/edit/post/void/allocation/reconciliation/settlement/contribution work until an audited correction-memo reopen occurs.
 - Database constraints enforce positive amounts, one-sided journal lines, lifecycle/status ranges, allocation ranges, unique close periods, unique statements, and one reconciliation match per statement line.
-- Twenty-five deterministic authentication, backup, evidence, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement, and close/reopen tests pass.
+- Thirty deterministic authentication, backup, evidence, CSV parsing/import, accounting, lifecycle, rollback, idempotency, closed-period, reconciliation, settlement, and close/reopen tests pass.
 - Frontend workflow and destructive-confirmation tests are still absent.
 - Secure evidence upload, preview/download, replacement, archive, integrity checking, and encrypted backup/restore are implemented and tested.
 - Statements and evidence archive; accounts, categories, vendors, and allocation presets deactivate while remaining visible in historical records.
 - Reimbursement paid/waived/converted outcomes and owner draws are balanced, linked, audited, and tested. Intercompany reversal and account selection remain open.
 - Company lifecycle warnings cover balances, obligations, reconciliation, and evidence. The prior account-active-state restoration decision remains open.
 - The audit viewer is implemented; a final mutation-coverage audit remains open.
+- Statement CSV import supports amount and debit/credit layouts, blocks invalid or duplicate files before writes, imports atomically, and provides confirmation-only account-aware match suggestions.
 - OpenAPI generation is deterministic and TypeScript verification passes across libraries, API, frontend, and scripts.
 - API and frontend production builds pass. Route splitting removed the oversized main-chunk warning; four generated UI sourcemap warnings remain.
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
@@ -206,9 +207,16 @@ Verified against the repository on 2026-07-18:
 ### 2026-07-18 - Secure evidence and daily-use workflow push
 
 - Completed: secure evidence storage and recovery; statement/evidence archival and reference-data deactivation; owner draws; reimbursement waive/conversion; audit viewer; transaction detail; lifecycle warnings; reference-data management; owner-draw and retention exports; responsive navigation; and route-level bundle splitting.
-- Verification: 25 tests passed after the final code and documentation pass; all TypeScript targets and both production builds passed; consecutive OpenAPI generations produced identical hashes; seven migrations report applied with none pending; empty/current migration acceptance converged at fingerprint `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`; live API and web health checks passed.
-- Remaining: statement CSV import/preview/duplicate detection/assisted matching; intercompany reversal/account selection; deterministic export fixtures; frontend workflow/accessibility testing; operational packaging; broader error recovery; final audit/reference dependency coverage.
-- Next action: implement statement CSV import using a proven parser, with preview, mapping, duplicate detection, transactional insertion, and confirmation-only assisted matching.
+- Verification: 30 tests passed after the final code and documentation pass; all TypeScript targets and both production builds passed; consecutive OpenAPI generations produced identical hashes; seven migrations report applied with none pending; empty/current migration acceptance converged at fingerprint `24ec6fc2f1c7c7d3846b6fe521b5c604cd85977dc15573bc0052bb395ea44b29`; live API and web health checks passed.
+- Remaining: intercompany reversal/account selection; deterministic export fixtures; frontend workflow/accessibility testing; operational packaging; broader error recovery; final audit/reference dependency coverage.
+- Next action: implement explicit intercompany settlement-account selection and a balanced, audited reversal workflow.
+
+### 2026-07-18 - Statement CSV import and assisted matching
+
+- Completed: added a proven zero-dependency CSV parser; bounded multipart inspection; guided header mapping; amount and debit/credit layouts; strict US/ISO date and money parsing; full-file validation; duplicate detection; transactional import; source-row audit detail; and account-aware date/amount match suggestions requiring owner confirmation.
+- Verification: four parser fixtures and the database import/duplicate/closed-period fixtures raise the full suite to 30 passing tests; all TypeScript targets and both production builds pass; the split main frontend chunk remains 362.37 kB.
+- Remaining: intercompany reversal/account selection, deterministic export fixtures, frontend/accessibility testing, operational packaging, error recovery, and final audit/dependency-warning coverage.
+- Next action: implement explicit intercompany settlement-account selection and a balanced, audited reversal workflow.
 
 ### 2026-06-18 - Master TODO and alignment protocol
 
