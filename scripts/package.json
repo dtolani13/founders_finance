@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "seed": "tsx ./src/seed.ts",
+    "prepare-owner-data": "tsx ./src/prepare-owner-data.ts",
     "backup": "tsx ./src/backup.ts",
     "backup:verify": "tsx ./src/verify-backup.ts",
     "backup:acceptance": "tsx ./src/backup-acceptance.ts",

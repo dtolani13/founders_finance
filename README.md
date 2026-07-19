@@ -21,6 +21,14 @@ Before repository work, follow the session protocol in [Master TODO](docs/MASTER
 
 ## Quick Start
 
+### Daily use on this machine
+
+Open **Founders Finance** from the Desktop or Start Menu shortcut. The native launcher starts the local database, API, and verified production web application when needed, then opens Founders Finance in its own Microsoft Edge app window.
+
+The launcher executable is `release/Founders Finance.exe`. The Start Menu shortcut can be right-clicked and pinned to the taskbar.
+
+### Repository setup
+
 Prerequisites are Node.js 20+, pnpm 9+, and PostgreSQL 15+ or an existing project-managed PostgreSQL data directory.
 
 ```powershell
@@ -83,6 +91,8 @@ lib/
   api-client-react/    Generated React Query client
   api-zod/             Generated validation schemas
 scripts/               Local operations and acceptance tools
+desktop/               Native Windows launcher source
+release/               Loadable Founders Finance executable
 docs/                  Owner, operator, and engineering guides
 ```
 

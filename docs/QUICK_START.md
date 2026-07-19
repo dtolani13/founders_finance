@@ -42,6 +42,15 @@ Expected migration status: `pending` is `0`.
 
 ## Start Founders Finance
 
+For normal daily use on the configured owner machine, open either shortcut:
+
+- Desktop: `C:\Desktop\Founders Finance.lnk`
+- Start Menu: **Founders Finance**
+
+The Start Menu shortcut can be right-clicked and pinned to the taskbar. Both shortcuts launch `release\Founders Finance.exe`, which starts the local services when needed and opens a dedicated Microsoft Edge app window.
+
+The commands below remain available for maintenance and troubleshooting:
+
 ```powershell
 pnpm run app:doctor
 pnpm run app:start
@@ -111,6 +120,13 @@ pnpm run db:generate
 ```
 
 Use the supported `app:*` commands for normal owner operation.
+
+Rebuild or reinstall the Windows launcher after changing its source or icon:
+
+```powershell
+pnpm run launcher:build
+pnpm run launcher:install
+```
 
 ## If Startup Fails
 

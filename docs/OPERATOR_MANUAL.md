@@ -79,14 +79,14 @@ If you cannot answer all four, the record is incomplete.
 **Purpose:** Software development, AI/ML research, and technical product work.
 
 **Belongs here:**
-- Cloud compute and API costs (AWS, OpenAI, Anthropic)
-- Development software and SaaS (GitHub, 1Password, cloud IDE)
+- Cloud compute and API costs
+- Development software, source control, and security subscriptions
 - Technical research and experimentation expenses
 
 **Example transactions:**
-- OpenAI API usage — $142.50/month
-- AWS compute + storage — $89.20/month
-- GitHub Teams subscription — $16/month
+- Monthly cloud hosting invoice
+- Source-control subscription
+- Product research service
 
 **Do not mix in:**
 - SM's creative software costs
@@ -143,28 +143,28 @@ Each entity has accounts that represent where money is held or tracked.
 ### `owner_reimbursement`
 **Definition:** The founder paid a business expense personally and the company will repay them.
 **When to use:** Founder used a personal card or personal funds for a legitimate business expense.
-**Example:** Founder paid $19.95 for 1Password Teams on a personal Amex. RCL owes the founder $19.95.
+**Example:** Founder paid a $120 state registration fee personally. RCL owes the founder $120.
 
 ---
 
 ### `business_expense`
 **Definition:** A normal operating expense paid by a business account.
 **When to use:** Any purchase made from a business account for business purposes.
-**Example:** RCL's checking account pays AWS $89.20 for cloud hosting.
+**Example:** RCL's checking account pays a cloud provider for monthly hosting.
 
 ---
 
 ### `shared_expense_allocation`
 **Definition:** A single payment that benefits multiple entities or includes a personal component, split into allocations.
 **When to use:** Any expense where the benefit is not 100% attributable to one entity.
-**Example:** RCL pays $100 for OpenAI API. Allocated: SM $40, RCL $40, Personal $20.
+**Example:** RCL pays $100 for a shared software service. Allocated: SM $40, RCL $40, Personal $20.
 
 ---
 
 ### `intercompany_reimbursement`
 **Definition:** One entity pays another entity back for a previous intercompany balance.
 **When to use:** When clearing an intercompany payable. This does not create a new expense — it settles an existing debt.
-**Example:** SM transfers $40 to RCL to clear the intercompany balance created by the OpenAI allocation.
+**Example:** SM transfers $40 to RCL to clear the intercompany balance created by the shared-software allocation.
 
 ---
 
@@ -484,13 +484,15 @@ All exports are CSV files generated in the browser from live API data.
 
 Use this test to confirm the app is working correctly after any update:
 
-1. **Create a $100 expense** — paid by RCL, vendor "OpenAI", category "AI/ML Infrastructure", description "OpenAI API - spec test"
+Run this workflow only against a disposable verification database, never the production owner ledger.
+
+1. **Create a $100 expense** — paid by RCL, vendor "Verification Vendor", category "Software", description "Isolated workflow verification"
 2. **Allocate** — Studio Maestro $40 (40%), RCL $40 (40%), Personal $20 (20%)
 3. **Confirm intercompany balance** — Dashboard or Intercompany page should show SM owes RCL $40
-4. **Add evidence** — Create a document record on the transaction, type `screenshot`, file_path `evidence/openai/2026-05/openai-api-may.png`
-5. **Add statement line** — Create a statement for RCL's account for the current month, add a line for $100 "OpenAI"
+4. **Add evidence** — Attach a disposable screenshot to the transaction
+5. **Add statement line** — Create a statement for RCL's account for the current month, add a line for $100 "Workflow verification"
 6. **Match statement line** — Link the $100 line to the posted transaction
 7. **Record owner contribution** — Navigate to Owner Contributions, add a $5,000 capital contribution to RCL
-8. **Export transactions** — Go to Exports, run "All Transactions" CSV, confirm the OpenAI expense appears
+8. **Export transactions** — Go to Exports, run "All Transactions" CSV, confirm the verification expense appears
 
 If all eight steps complete without error, the core flow is working.

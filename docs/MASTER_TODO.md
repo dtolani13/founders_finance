@@ -143,8 +143,9 @@ Full operating rules are in `AGENTS.md`.
 
 - [x] **Operational packaging and startup reliability**
   - Supported `app:doctor`, `app:start`, `app:status`, `app:restart`, and `app:stop` commands validate environment/storage/ports, start the managed database when needed, check migrations, build production assets, own service processes, wait for health, and retain local logs.
-  - Cold start, restart, status, stop, database-major selection, production web-to-API proxying, and port cleanup are verified.
-  - Acceptance: a configured local machine can start the app using documented root commands without hidden service controls.
+  - A native branded `Founders Finance.exe` launcher and valid Desktop/Start Menu shortcuts provide normal owner startup without a terminal; the Start Menu shortcut is pinnable to the taskbar.
+  - Executable cold start, restart, status, stop, database-major selection, production web-to-API proxying, and port cleanup are verified.
+  - Acceptance: a configured local machine can start the app from the native executable or documented root commands without hidden service controls.
 
 - [x] **Documentation reconciliation**
   - Product, quick-start, operator, status, limitation, troubleshooting, backup, handoff, and master TODO guidance align with the supported local-use release.
@@ -168,7 +169,7 @@ Full operating rules are in `AGENTS.md`.
 - [x] Founders Finance naming and GitHub repository established.
 - [x] React/Vite frontend, Express API, PostgreSQL, Drizzle, OpenAPI, and pnpm workspace build successfully.
 - [x] Core dashboard, transactions, expense entry, allocations, intercompany visibility, contributions, reimbursements, tax reserve, evidence metadata, statements, monthly close, exports, and settings pages exist.
-- [x] Polymathic Systems LLC is included in seed data.
+- [x] Studio Maestro LLC, Polymathic Systems LLC, Recursive Chaos Labs LLC, and Personal are retained in the clean owner bootstrap.
 - [x] Company creation creates default checking and tax reserve accounts.
 - [x] Company close/archive/reopen preserves company records and deactivates/reactivates accounts.
 - [x] Shared encrypted backup engine, in-app control center, CLI verification, and clean-database recovery drill exist.
@@ -177,6 +178,7 @@ Full operating rules are in `AGENTS.md`.
 - [x] Single-owner setup, unlock, logout, session expiry, persistent lockout, and protected API entry are implemented.
 - [x] OpenAPI code generation is deterministic and no manual entity client overlaps generated operations.
 - [x] Typecheck and production build passed during the 2026-07-19 local-use release gate.
+- [x] Production owner data is clean: four intended company identities, eight zero-balance required accounts, one owner credential, and no sample financial, reference, evidence, audit, or session records.
 
 ## Current Alignment Findings
 
@@ -202,6 +204,14 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-07-19 - Native owner launcher and clean-data handoff
+
+- Completed: removed the non-interactive Entity/Audited sidebar boxes; replaced the orange placeholder favicon with the approved shield; added a native branded Windows executable, build/install scripts, and validated Desktop/Start Menu shortcuts.
+- Owner data cleanup: removed the archived QA company and all sample transactions, lines, balances, vendors, categories, allocation presets, tax rules, contributions, reimbursements, intercompany links, statements, evidence, exports, audit events, login attempts, and sessions. Preserved Studio Maestro, Polymathic Systems, Recursive Chaos Labs, Personal, and the owner credential; created only eight required zero-balance blank checking/tax-reserve accounts.
+- Source hardening: removed the sample seed script and replaced it with an explicit, guarded, atomic owner-data preparation command that refuses to run if any required company identity is missing.
+- Verification: the executable passed a fully stopped cold launch and brought the managed database, API, and web app to ready state; shortcut targets and embedded icon were inspected; all 32 tests, complete TypeScript verification, and both production builds pass. The live database remains at four entities, eight blank accounts, one credential, and zero financial/reference/evidence/audit/session rows.
+- Release decision: ready for owner entry of real data. First action is to unlock from the Founders Finance shortcut, review company/account names, then create and test an encrypted backup before substantial entry.
 
 ### 2026-07-19 - Personal local-use release completed
 

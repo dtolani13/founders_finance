@@ -42,7 +42,7 @@ Auto-created when a new vendor name is entered on an expense.
 
 ### `categories`
 
-Chart of accounts / expense categories. Seeded.
+Chart of accounts / expense categories. Owner-managed; the production owner database starts empty.
 
 | Column | Type | Notes |
 |---|---|---|

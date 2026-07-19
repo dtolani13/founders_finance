@@ -64,8 +64,8 @@ For each business expense paid by a company account this month:
 5. If shared or has a personal component: continue to Section 4
 
 **Common recurring expenses to enter:**
-- Software subscriptions (Adobe CC, GitHub, 1Password, cloud IDE)
-- Cloud infrastructure (AWS, OpenAI API)
+- Software and security subscriptions
+- Cloud infrastructure and API services
 - Internet and phone (if business-paid)
 - Professional services
 - Equipment and hardware

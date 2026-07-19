@@ -162,16 +162,6 @@ export function AppLayout({
             <span className="block whitespace-nowrap">Where Cash Flows.</span>
             <span className="mt-0.5 block whitespace-nowrap">Where Every Dollar Goes.</span>
           </p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-md border border-slate-700/80 bg-slate-950/60 px-3 py-2">
-              <p className="text-xs font-bold text-white">Entity</p>
-              <p className="text-xs text-slate-400">aware</p>
-            </div>
-            <div className="rounded-md border border-slate-700/80 bg-slate-950/60 px-3 py-2">
-              <p className="text-xs font-bold text-white">Audited</p>
-              <p className="text-xs text-slate-400">write trails</p>
-            </div>
-          </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-1.5">
           {navigation()}

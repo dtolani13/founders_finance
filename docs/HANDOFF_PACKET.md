@@ -25,6 +25,8 @@ Customer hosting and multi-user commercialization remain a separate future relea
 
 ## Supported Operations
 
+Normal owner launch: open `release\Founders Finance.exe` or the installed Desktop/Start Menu **Founders Finance** shortcut. The Start Menu shortcut is pinnable to the taskbar.
+
 ```powershell
 pnpm run app:doctor
 pnpm run app:start
@@ -46,6 +48,8 @@ The launcher loads the root `.env`, validates configuration and storage, starts 
 - Disposable encrypted backup acceptance restores 24 tables and evidence into a clean database with matching counts.
 - Isolated browser validation covers owner setup, two companies, category creation, balanced expense posting, intercompany settlement/reversal, statement CSV import, posted-only reconciliation, unmatch/rematch, evidence upload/preview, monthly close/reopen/reclose, encrypted backup creation/verification/recovery drill, responsive breakpoints, keyboard dialogs, and API outage messaging.
 - Project content and tracked filenames contain no prohibited hosted-builder branding or legacy product name.
+- The native `release\Founders Finance.exe` passed a stopped-state cold launch; Desktop and Start Menu shortcuts resolve to it and use the embedded Founders Finance shield icon.
+- The owner database contains only four intended company identities, eight blank zero-balance required accounts, and one owner credential. All sample financial/reference/evidence/audit/session records are absent.
 
 The Vite build still prints four non-blocking source-map location warnings from UI component modules. They do not affect runtime behavior or source output.
 
@@ -60,8 +64,8 @@ The Vite build still prints four non-blocking source-map location warnings from 
 
 ## Owner Start
 
-1. Run `pnpm run app:start`.
-2. Open `http://127.0.0.1:5175` and unlock.
+1. Open **Founders Finance** from the Desktop, Start Menu, or pinned taskbar shortcut.
+2. Unlock the owner workspace.
 3. Confirm the real companies and accounts in Settings.
 4. Create an encrypted backup and run **Test restore** before loading substantial real data.
 5. Copy the `.ffbackup` package to a separate physical or cloud location.

@@ -4,7 +4,7 @@ Updated: 2026-07-19. The personal local-use release is complete. Use `MASTER_TOD
 
 ## Owner Rollout
 
-1. Start with `pnpm run app:start` and open `http://127.0.0.1:5175`.
+1. Open **Founders Finance** from the installed Desktop, Start Menu, or pinned taskbar shortcut.
 2. Confirm or create each company and review its default checking and tax-reserve accounts.
 3. Enter a small real transaction and attach its evidence.
 4. Create an encrypted backup, run the recovery drill, and copy the package off the application disk.
