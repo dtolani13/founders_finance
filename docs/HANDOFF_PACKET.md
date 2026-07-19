@@ -50,7 +50,7 @@ The launcher loads the root `.env`, validates configuration and storage, starts 
 - Project content and tracked filenames contain no prohibited hosted-builder branding or legacy product name.
 - The native `release\Founders Finance.exe` passed a stopped-state cold launch; Desktop and Start Menu shortcuts resolve to it and use the embedded Founders Finance shield icon.
 - The owner database contains only four intended company identities, eight blank zero-balance required accounts, and one owner credential. All sample financial/reference/evidence/audit/session records are absent.
-- All 13 export reports support CSV download and dedicated full-report Print / Save PDF output. The complete owner operating reference is `docs/OWNER_GUIDE.md`, with a packaged copy at `release/Founders Finance Owner Guide.pdf` and Desktop/Start Menu shortcuts installed alongside the app shortcut.
+- All 13 export reports support CSV download and dedicated full-report Print / Save PDF output. The complete owner operating reference is `docs/OWNER_GUIDE.md`, with a printable copy at `release/Founders Finance Owner Guide.pdf`, an editable Word copy at `release/Founders Finance Owner Guide.docx`, and Desktop/Start Menu shortcuts installed alongside the app shortcut.
 - Production startup anchors relative evidence and backup paths to the repository root, so runtime storage consistently resolves to `evidence\` and `backups\`.
 
 The Vite build still prints four non-blocking source-map location warnings from UI component modules. They do not affect runtime behavior or source output.

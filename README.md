@@ -102,6 +102,7 @@ Companies are created and managed in Settings. New companies receive a default c
 
 - [Owner Guide](docs/OWNER_GUIDE.md)
 - [Printable Owner Guide](release/Founders%20Finance%20Owner%20Guide.pdf)
+- [Editable Word Owner Guide](release/Founders%20Finance%20Owner%20Guide.docx)
 - [Operator Manual](docs/OPERATOR_MANUAL.md)
 - [Quick Start](docs/QUICK_START.md)
 - [Monthly Workflow](docs/MONTHLY_WORKFLOW.md)

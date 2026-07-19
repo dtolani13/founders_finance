@@ -206,6 +206,13 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 
 ## Session Log
 
+### 2026-07-19 - Editable Word owner guide and reader-friendly pagination
+
+- Completed: added an editable 30-page Word edition at `release/Founders Finance Owner Guide.docx`, generated from the canonical Markdown guide with real Word heading styles, editable tables, and real restarting list definitions.
+- Pagination: every numbered top-level section begins on a fresh page; subheadings stay with their first complete content block; complete procedure and checklist lists stay together; table rows do not split; table headers repeat; widow/orphan control is enabled throughout.
+- Verification: Microsoft Word rendered all 30 pages to PDF and PNG because LibreOffice is not installed. Every rendered page was visually inspected through complete contact sheets plus full-size checks of the cover, workflows, short-section transitions, export/print instructions, backup guidance, troubleshooting, and quick-reference table. No clipping, overlap, broken tables, continuation numbering, orphaned section headings, or one-line subsection spillovers remain.
+- Packaging: added `output/docx/Founders Finance Owner Guide.docx`, marked DOCX artifacts as binary in Git, documented the Python generation dependency, and installed dedicated Desktop and Start Menu shortcuts named **Founders Finance Owner Guide (Editable)**.
+
 ### 2026-07-19 - Owner instructions, printable exports, and storage-path hardening
 
 - Completed: added a comprehensive owner-first operating guide covering every workspace, normal and shared expenses, corrections, statement reconciliation, monthly close, company retention, evidence, all 13 exports, physical printing, Save to PDF, encrypted backup/restore, off-device copies, troubleshooting, and safety rules.
