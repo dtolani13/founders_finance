@@ -295,3 +295,9 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 - Verification: 18 tests passed; all TypeScript targets passed; API and frontend production builds passed; OpenAPI generation was deterministic; empty/copy migration acceptance preserved row counts and produced fingerprint `f9862f02354ae4723b504dc2601b986e57cf6e919498725c9cb43695bb5d31a4`; the local database reports four applied and zero pending migrations.
 - Remaining notices: frontend browser workflow tests are absent; the 630.45 kB main chunk and three UI sourcemap warnings remain.
 - Next action: implement secure evidence upload/download/preview/replacement with path/type/size validation and prove evidence survives encrypted backup and clean restore.
+
+### 2026-07-19 - Brand slogan update
+
+- Completed: replaced the former logo slogan with **WHERE CASH FLOWS. WHERE EVERY DOLLAR GOES.** across the high-resolution and standard production logo assets, application chrome, owner-entry accessibility text, and session handoff.
+- Verification: visually inspected the 2036x1018 exported master; confirmed exact spelling, punctuation, spacing, and no clipping; frontend TypeScript verification and the production Vite build pass.
+- Deliverable: owner copies are saved in Downloads as `FoundersFinance_logo_where-cash-flows_highres.png` and `FoundersFinance_logo_where-cash-flows.png`.

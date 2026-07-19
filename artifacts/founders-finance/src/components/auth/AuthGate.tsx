@@ -176,7 +176,7 @@ export function AuthGate({ children }: AuthGateProps) {
           <div className="min-w-0">
             <img
               src="/brand/founders-finance-logo-reference-highres.png"
-              alt="Founders Finance. Every Dollar. Every Entity."
+              alt="Founders Finance. Where Cash Flows. Where Every Dollar Goes."
               className="block h-auto w-full max-w-[360px] object-contain object-left mix-blend-screen sm:max-w-[480px] lg:max-w-[560px]"
             />
           </div>

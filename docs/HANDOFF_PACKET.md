@@ -8,6 +8,8 @@ Updated: 2026-07-19
 
 Founders Finance is ready for the owner's controlled local use. The personal release has a supported production launcher, protected owner entry, atomic accounting, retention controls, secure evidence, statement reconciliation, monthly close, traceable exports, and encrypted backup recovery.
 
+Current brand slogan: **WHERE CASH FLOWS. WHERE EVERY DOLLAR GOES.** The matching production logo masters are tracked under `assets/brand/founders-finance/reference/` and served from the frontend `public/brand/` directory.
+
 Customer hosting and multi-user commercialization remain a separate future release.
 
 ## Repository

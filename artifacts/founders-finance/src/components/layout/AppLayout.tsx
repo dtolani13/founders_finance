@@ -159,7 +159,7 @@ export function AppLayout({
             </div>
           </div>
           <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
-            Every Dollar. Every Entity.
+            Where Cash Flows. Where Every Dollar Goes.
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-md border border-slate-700/80 bg-slate-950/60 px-3 py-2">
