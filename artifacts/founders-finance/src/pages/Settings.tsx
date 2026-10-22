@@ -53,12 +53,12 @@ function AddCompanyForm() {
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
-      legal_name: "Polymathic Systems LLC",
-      display_name: "Polymathic Systems",
-      short_code: "POLY",
+      legal_name: "",
+      display_name: "",
+      short_code: "",
       entity_type: "LLC",
-      purpose: "Systems, automation, and software operations",
-      tax_classification_note: "Single-member LLC disregarded for federal tax",
+      purpose: "",
+      tax_classification_note: "",
     },
   });
 

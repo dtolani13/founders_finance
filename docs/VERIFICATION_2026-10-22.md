@@ -66,3 +66,11 @@ Four existing UI sourcemap notices remain in the frontend build (label, select, 
 Limits: controlled single-owner local use only; no claim of a new native installer, public hosting, multi-user isolation, exhaustive accessibility certification, bank connectivity, PDF/OCR ingestion, or mixed-currency/FX processing. Existing books need opening-balance reconciliation before adopting the new derived balance reads. Duplicate fingerprints are heuristics and can flag legitimate identical rows; see [Statement ingestion](STATEMENT_INGESTION.md).
 
 Skills applied: Site Survey, No-Proof-No-Run (repository v2 rules), Design Master, engineering Code Review, Pressure Test, Computer Use, and Verification Before Completion. The repository's minimum-sufficient-proof protocol controls acceptance; no duplicate owner test is required for these technical checks.
+
+## Follow-up: demo form identity correction
+
+The owner's screenshot exposed a gap in the initial demo review: the Add Company form retained real-company values in its frontend defaults despite the synthetic ledger. The legal name, display name, short code, purpose and tax note now initialize empty, matching the form's existing reset behavior. The generic LLC type remains.
+
+Root typecheck and build pass after this correction. A scan of active frontend source and compiled web assets found zero matches for the known owner company/person names and the removed descriptive defaults. The refreshed running Settings page confirms all five values are empty and still lists only Northstar Studio, Orbit Works and Atelier Ventures as sample companies. No database mutation was needed. The original seven website screenshots do not contain this form and remain unaffected.
+
+![Corrected demo Settings form with empty company fields](images/demo-settings-corrected.jpg)

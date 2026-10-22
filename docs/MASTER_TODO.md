@@ -6,6 +6,7 @@ Last repository alignment review: **2026-10-22** (RCL fork; July evidence below 
 
 ## Active RCL fork — 2026-10-22
 
+- [x] Remove owner-specific Add Company defaults missed in the initial demo review. Verified blank name/code/purpose/tax-note fields in the running demo; the owner-name scan finds zero active frontend/source-build matches; sample entities are unchanged; root typecheck/build pass. Evidence is appended to `docs/VERIFICATION_2026-10-22.md`.
 - [x] Preserve original blue edition and compare GitHub/local source. Both main heads are `88b2840`; local AGENTS verification update is preserved. Tag `original-blue-2026-10-22` and branch `brand/rcl-2026-10-22` are in the isolated checkout; original CSS/assets unchanged.
 - [x] Apply the exact approved RCL emblem/palette to login, app shell, phone header/drawer, favicon and product attribution. Real desktop/mobile rendering verified; seven website screenshots use synthetic data and include captions/alt text.
 - [x] Harden statement ingestion: strict cents, explicit conventions, full preview with totals, preview binding, account-level concurrency and overlap checks, minimal provenance, reviewed unmatched lines only. Real browser import and exact-amount matching completed; state survived restart.
@@ -215,6 +216,14 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-10-22 - Correct owner-specific defaults in the demo
+
+- Finding: the sample ledger used fictional companies, but the Add Company form retained the owner's company name, short code, purpose and tax note as hard-coded initial values. The first demo review missed this UI content defect.
+- Completed: cleared those five initial values, matching the form's existing blank reset behavior. Kept the generic LLC entity type and the approved RCL studio branding.
+- Verification: root typecheck/build pass; source and compiled frontend scans find zero matches for the known owner names/details; the refreshed browser shows all five values empty and the same three sample companies. Screenshot: `docs/images/demo-settings-corrected.jpg`.
+- Unresolved: no blocker for this correction. Existing historical source documentation and owner-only preparation scripts are separate from the demo UI; no financial records were changed.
+- Next action: continue demo review with sample data. Include form defaults, placeholders and empty states in future demo-content checks.
 
 ### 2026-10-22 - RCL source fork, ingestion review and website assets
 
