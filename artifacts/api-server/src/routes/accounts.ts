@@ -1,3 +1,4 @@
+import { accountFieldsWithBalance } from "../services/account-balances";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { accounts, entities } from "@workspace/db";
@@ -13,7 +14,7 @@ router.get("/", async (req, res) => {
     const conditions = entity_id
       ? and(include_inactive === "true" ? undefined : eq(accounts.is_active, true), eq(accounts.entity_id, entity_id as string))
       : include_inactive === "true" ? undefined : eq(accounts.is_active, true);
-    const rows = await db.select().from(accounts).where(conditions);
+    const rows = await db.select(accountFieldsWithBalance).from(accounts).where(conditions);
     res.json(rows);
   } catch (err) {
     req.log.error({ err }, "Failed to list accounts");
@@ -76,7 +77,7 @@ router.put("/:id", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const rows = await db.select().from(accounts).where(eq(accounts.id, id));
+    const rows = await db.select(accountFieldsWithBalance).from(accounts).where(eq(accounts.id, id));
     if (!rows.length) return res.status(404).json({ error: "Account not found" });
     res.json(rows[0]);
   } catch (err) {

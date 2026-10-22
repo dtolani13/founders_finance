@@ -173,6 +173,8 @@ type CsvMapping = {
   debit: string;
   credit: string;
   balance: string;
+  dateFormat: "us" | "iso" | "day_first";
+  amountSign: "negative_outflow" | "positive_outflow";
 };
 
 const emptyCsvMapping: CsvMapping = {
@@ -184,6 +186,8 @@ const emptyCsvMapping: CsvMapping = {
   debit: "",
   credit: "",
   balance: "",
+  dateFormat: "us",
+  amountSign: "negative_outflow",
 };
 
 function detectColumn(headers: string[], patterns: RegExp[]) {
@@ -197,6 +201,8 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
   const [mapping, setMapping] = useState<CsvMapping>(emptyCsvMapping);
   const [preview, setPreview] = useState<StatementCsvPreview | null>(null);
   const [skipDuplicates, setSkipDuplicates] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
+  const [page, setPage] = useState(0);
 
   const inspect = useInspectStatementCsv({
     mutation: {
@@ -207,6 +213,7 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
         setInspection(result);
         setPreview(null);
         setMapping({
+          ...emptyCsvMapping,
           transactionDate: detectColumn(result.headers, [/transaction date/, /^date$/, /effective date/]),
           postedDate: detectColumn(result.headers, [/posted date/, /post date/]),
           description: detectColumn(result.headers, [/description/, /memo/, /details/, /name/]),
@@ -223,7 +230,7 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
 
   const validate = usePreviewStatementCsv({
     mutation: {
-      onSuccess: setPreview,
+      onSuccess: (result) => { setPreview(result); setPage(0); setReviewed(false); setSkipDuplicates(false); },
       onError: () => toast({ title: "Could not validate CSV", description: "Check the selected columns and file format.", variant: "destructive" }),
     },
   });
@@ -252,6 +259,10 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
       credit_column: mapping.mode === "debit_credit" ? mapping.credit : undefined,
       balance_column: mapping.balance || undefined,
       skip_duplicates: skipDuplicates ? "true" : "false",
+      date_format: mapping.dateFormat,
+      amount_sign: mapping.amountSign,
+      currency: "USD",
+      preview_fingerprint: preview?.preview_fingerprint,
     };
   }
 
@@ -264,13 +275,16 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
     inspect.mutate({ id: statementId, data: { file: selected } });
   }
 
-  const duplicateCount = (preview?.in_file_duplicate_rows.length ?? 0) + (preview?.existing_duplicate_rows.length ?? 0);
-  const canImport = Boolean(preview?.ready_to_import && (!duplicateCount || skipDuplicates));
+  const duplicateRows = new Set([...(preview?.in_file_duplicate_rows ?? []), ...(preview?.existing_duplicate_rows ?? [])]);
+  const duplicateCount = duplicateRows.size;
+  const busy = inspect.isPending || validate.isPending || importCsv.isPending;
+  const totals = skipDuplicates ? preview?.importable_totals : preview?.totals;
+  const canImport = Boolean(reviewed && preview?.ready_to_import && preview.valid_rows > duplicateCount && (!duplicateCount || skipDuplicates));
   const selectColumn = (label: string, value: string, onChange: (value: string) => void, optional = false) => (
     <div className="space-y-1.5">
       <label className="text-xs font-medium">{label}</label>
       <Select value={value || "__none__"} onValueChange={(next) => onChange(next === "__none__" ? "" : next)}>
-        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label={label} className="h-9 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>
           {optional && <SelectItem value="__none__">Not included</SelectItem>}
           {!optional && <SelectItem value="__none__" disabled>Select a column</SelectItem>}
@@ -285,12 +299,14 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm"><FileSpreadsheet className="h-4 w-4 text-primary" />Import statement CSV</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent>
+        <fieldset disabled={busy} className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input type="file" accept=".csv,text/csv" className="h-9 max-w-sm text-xs" onChange={(event) => chooseFile(event.target.files?.[0])} />
-          <span className="text-xs text-muted-foreground">CSV only, 2 MB and 5,000 rows maximum</span>
+          <Input aria-label="Statement CSV file" type="file" accept=".csv,text/csv" className="h-9 max-w-sm text-xs" onChange={(event) => chooseFile(event.target.files?.[0])} />
+          <span className="text-xs text-muted-foreground">USD bank exports · CSV only · 2 MB / 5,000 rows</span>
         </div>
 
+        {inspect.isPending && <p role="status" className="text-sm text-muted-foreground">Reading CSV columns…</p>}
         {inspection && (
           <>
             <div className="flex items-center gap-2 text-xs"><CheckCircle className="h-4 w-4 text-emerald-500" />{inspection.row_count} data rows found in {file?.name}</div>
@@ -299,6 +315,16 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
               {selectColumn("Description", mapping.description, (value) => { setMapping({ ...mapping, description: value }); setPreview(null); })}
               {selectColumn("Posted date", mapping.postedDate, (value) => { setMapping({ ...mapping, postedDate: value }); setPreview(null); }, true)}
               {selectColumn("Running balance", mapping.balance, (value) => { setMapping({ ...mapping, balance: value }); setPreview(null); }, true)}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5"><label htmlFor={`date-format-${statementId}`} className="text-xs font-medium">Date convention</label>
+                <select id={`date-format-${statementId}`} value={mapping.dateFormat} className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs" onChange={(event) => { setMapping({ ...mapping, dateFormat: event.target.value as CsvMapping["dateFormat"] }); setPreview(null); }}>
+                  <option value="us">Month / day / YYYY (or ISO)</option><option value="iso">ISO only: YYYY-MM-DD</option><option value="day_first">Day / month / YYYY (or ISO)</option>
+                </select></div>
+              {mapping.mode === "amount" && <div className="space-y-1.5"><label htmlFor={`amount-sign-${statementId}`} className="text-xs font-medium">Amount convention</label>
+                <select id={`amount-sign-${statementId}`} value={mapping.amountSign} className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs" onChange={(event) => { setMapping({ ...mapping, amountSign: event.target.value as CsvMapping["amountSign"] }); setPreview(null); }}>
+                  <option value="negative_outflow">Negative = money out</option><option value="positive_outflow">Positive = money out</option>
+                </select></div>}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-medium">Amount layout</label>
@@ -326,25 +352,34 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{preview.valid_rows} valid</Badge>
               <Badge variant={preview.errors.length ? "destructive" : "outline"}>{preview.errors.length} errors</Badge>
-              <Badge variant={duplicateCount ? "secondary" : "outline"}>{duplicateCount} duplicates</Badge>
+              <Badge variant={duplicateCount ? "secondary" : "outline"}>{duplicateCount} possible duplicates</Badge>
             </div>
+            {totals && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Import totals in USD">
+              {[['Money out', totals.debit_cents], ['Money in', totals.credit_cents], ['Net change', totals.net_cents]].map(([label, cents]) => <div key={label} className="rounded-md border border-border bg-muted/20 p-3"><div className="text-xs text-muted-foreground">{label} · USD</div><div className="mt-1 font-mono text-lg font-semibold">{formatCurrency(Number(cents) / 100)}</div></div>)}
+            </div>}
+            <p className="text-xs text-muted-foreground">{skipDuplicates ? 'Totals exclude flagged duplicates.' : 'Totals include every valid row.'} Import creates statement lines for review. It does not post ledger transactions.</p>
             {preview.errors.length > 0 && (
               <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{preview.errors.slice(0, 8).map((error) => <div key={`${error.row}-${error.message}`}>Row {error.row}: {error.message}</div>)}</AlertDescription></Alert>
             )}
             {duplicateCount > 0 && (
               <div className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/5 p-3">
-                <Checkbox id={`skip-duplicates-${statementId}`} checked={skipDuplicates} onCheckedChange={(checked) => setSkipDuplicates(checked === true)} />
-                <label htmlFor={`skip-duplicates-${statementId}`} className="text-xs">Skip {duplicateCount} duplicate row{duplicateCount === 1 ? "" : "s"} and import the remaining validated rows</label>
+                <Checkbox id={`skip-duplicates-${statementId}`} checked={skipDuplicates} onCheckedChange={(checked) => { setSkipDuplicates(checked === true); setReviewed(false); }} />
+                <label htmlFor={`skip-duplicates-${statementId}`} className="text-xs">Skip {duplicateCount} flagged row{duplicateCount === 1 ? "" : "s"}. Identical rows can be legitimate; compare them with your bank export before skipping.</label>
               </div>
             )}
-            {preview.sample_rows.length > 0 && (
+            {preview.rows.length > 0 && (
               <div className="overflow-x-auto rounded border border-border">
                 <table className="w-full min-w-[620px] text-xs">
-                  <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">CSV row</th><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2 text-right">Balance</th></tr></thead>
-                  <tbody>{preview.sample_rows.map((row) => <tr key={row.sourceRow} className="border-t border-border"><td className="px-3 py-2">{row.sourceRow}</td><td className="px-3 py-2 font-mono">{row.transaction_date}</td><td className="px-3 py-2">{row.description}</td><td className="px-3 py-2 text-right font-mono">{formatCurrency(row.amount)}</td><td className="px-3 py-2 text-right font-mono">{row.balance_after == null ? "—" : formatCurrency(row.balance_after)}</td></tr>)}</tbody>
+                  <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">CSV row</th><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2 text-right">Balance</th><th className="px-3 py-2 text-left">Review</th></tr></thead>
+                  <tbody>{preview.rows.slice(page * 25, (page + 1) * 25).map((row) => <tr key={row.sourceRow} className="border-t border-border"><td className="px-3 py-2">{row.sourceRow}</td><td className="px-3 py-2 font-mono">{row.transaction_date}</td><td className="px-3 py-2">{row.description}</td><td className="px-3 py-2 text-right font-mono">{formatCurrency(row.amount)}</td><td className="px-3 py-2 text-right font-mono">{row.balance_after == null ? "—" : formatCurrency(row.balance_after)}</td><td className="px-3 py-2">{duplicateRows.has(row.sourceRow) ? <span className="text-amber-300">Possible duplicate</span> : "Ready"}</td></tr>)}</tbody>
                 </table>
               </div>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Rows {preview.rows.length ? page * 25 + 1 : 0}–{Math.min((page + 1) * 25, preview.rows.length)} of {preview.rows.length}</span>
+              <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</Button><Button size="sm" variant="outline" disabled={(page + 1) * 25 >= preview.rows.length} onClick={() => setPage(page + 1)}>Next</Button></div>
+            </div>
+            {preview.ready_to_import && <div className="flex items-start gap-2 py-2"><Checkbox id={`reviewed-${statementId}`} checked={reviewed} onCheckedChange={(value) => setReviewed(value === true)} /><label htmlFor={`reviewed-${statementId}`} className="text-xs leading-5">I reviewed the account, date and amount conventions, rows, and totals against my bank export.</label></div>}
           </div>
         )}
 
@@ -352,6 +387,7 @@ function CsvImportPanel({ statementId, onImported, onCancel }: { statementId: st
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
           {preview && <Button size="sm" disabled={!canImport || importCsv.isPending} onClick={() => { const data = body(); if (data) importCsv.mutate({ id: statementId, data: { ...data, skip_duplicates: skipDuplicates ? "true" : "false" } }); }}><Upload className="mr-1.5 h-4 w-4" />{importCsv.isPending ? "Importing..." : "Import validated rows"}</Button>}
         </div>
+        </fieldset>
       </CardContent>
     </Card>
   );
@@ -794,15 +830,15 @@ export default function Statements() {
             return (
               <div key={stmt.id} className={idx > 0 ? "border-t border-border" : ""}>
                 <div
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-muted/20 transition-colors ${isExpanded ? "bg-muted/10" : ""}`}
+                  className={`flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-muted/20 transition-colors ${isExpanded ? "bg-muted/10" : ""}`}
                   onClick={() => toggleExpand(stmt.id)}
                   data-testid={`row-statement-${stmt.id}`}
                 >
                   <span className="text-muted-foreground">
                     {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1 basis-48">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-sm">{stmt.account_name}</span>
                       <span className="font-mono text-xs text-muted-foreground">{stmt.statement_month?.slice(0, 7)}</span>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASS[stmt.status] ?? "bg-muted text-muted-foreground"}`}>

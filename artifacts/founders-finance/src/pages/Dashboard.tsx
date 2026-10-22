@@ -20,7 +20,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">System Status</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Financial overview</h1>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
@@ -51,18 +51,18 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">System Status</h1>
-          <p className="text-sm text-muted-foreground mt-1">Real-time entity financial positions</p>
+          <h1 className="text-2xl font-bold tracking-tight">Financial overview</h1>
+          <p className="text-sm text-muted-foreground mt-1">Cash, commitments, and the month ahead.</p>
         </div>
-        <div className="flex gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-yellow-500" />
             {formatCurrency(summary.total_pending_reimbursements)} Pending Reimb.
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            <span className="w-2 h-2 rounded-full bg-primary" />
             {formatCurrency(summary.total_open_intercompany)} Open Interco.
           </div>
         </div>
@@ -118,11 +118,11 @@ export default function Dashboard() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Owed from others</span>
-                    <span className="font-mono text-green-600">{formatCurrency(card.intercompany_receivables)}</span>
+                    <span className="font-mono text-green-400">{formatCurrency(card.intercompany_receivables)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Pending Reimbursements</span>
-                    <span className="font-mono text-orange-600">{formatCurrency(card.pending_reimbursements)}</span>
+                    <span className="font-mono text-orange-300">{formatCurrency(card.pending_reimbursements)}</span>
                   </div>
                 </div>
 

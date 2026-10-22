@@ -1,4 +1,5 @@
 import { parse } from "csv-parse/sync";
+import { createHash } from "node:crypto";
 
 export const MAX_STATEMENT_CSV_BYTES = 2 * 1024 * 1024;
 export const MAX_STATEMENT_CSV_ROWS = 5_000;
@@ -11,6 +12,8 @@ export type StatementImportMapping = {
   debitColumn?: string;
   creditColumn?: string;
   balanceColumn?: string;
+  dateFormat?: "us" | "iso" | "day_first";
+  amountSign?: "negative_outflow" | "positive_outflow";
 };
 
 export type ParsedStatementImportRow = {
@@ -35,6 +38,7 @@ function csvRecords(input: Buffer): string[][] {
     max_record_size: 65_536,
   }) as string[][];
   if (records.length < 2) throw new Error("The CSV must contain a header row and at least one data row.");
+  if (records[0].length > 128) throw new Error("CSV files are limited to 128 columns.");
   if (records.length - 1 > MAX_STATEMENT_CSV_ROWS) throw new Error(`CSV files are limited to ${MAX_STATEMENT_CSV_ROWS.toLocaleString()} data rows.`);
   return records;
 }
@@ -58,7 +62,7 @@ export function inspectStatementCsv(input: Buffer) {
   };
 }
 
-function parseDate(value: string): string {
+function parseDate(value: string, format: StatementImportMapping["dateFormat"] = "us"): string {
   const trimmed = value.trim();
   let year: number;
   let month: number;
@@ -69,12 +73,11 @@ function parseDate(value: string): string {
     month = Number(match[2]);
     day = Number(match[3]);
   } else {
-    match = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(trimmed);
-    if (!match) throw new Error("Use YYYY-MM-DD or MM/DD/YYYY dates.");
-    month = Number(match[1]);
-    day = Number(match[2]);
+    match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+    if (!match || format === "iso") throw new Error("Use four-digit years and the selected date format (ISO, MM/DD/YYYY or DD/MM/YYYY).");
+    month = Number(match[format === "day_first" ? 2 : 1]);
+    day = Number(match[format === "day_first" ? 1 : 2]);
     year = Number(match[3]);
-    if (year < 100) year += year >= 70 ? 1900 : 2000;
   }
   const candidate = new Date(Date.UTC(year, month - 1, day));
   if (candidate.getUTCFullYear() !== year || candidate.getUTCMonth() !== month - 1 || candidate.getUTCDate() !== day) {
@@ -87,13 +90,35 @@ function parseMoney(value: string, allowBlank = false): number | null {
   const trimmed = value.trim();
   if (!trimmed && allowBlank) return null;
   if (!trimmed) throw new Error("Amount is required.");
-  const parenthesized = /^\(.*\)$/.test(trimmed);
-  const cleaned = trimmed.replace(/[,$\s()]/g, "");
-  if (!/^[+-]?\d+(?:\.\d+)?$/.test(cleaned)) throw new Error(`"${trimmed}" is not a valid amount.`);
-  let amount = Number(cleaned);
-  if (!Number.isFinite(amount)) throw new Error(`"${trimmed}" is not a valid amount.`);
-  if (parenthesized) amount = -Math.abs(amount);
-  return Math.round(amount * 100) / 100;
+  const parenthesized = /^\([^()]+\)$/.test(trimmed);
+  let valueText = parenthesized ? trimmed.slice(1, -1) : trimmed;
+  const match = /^([+-]?)(?:\$)?((?:\d+|[1-9]\d{0,2}(?:,\d{3})+))(?:\.(\d{1,2}))?$/.exec(valueText);
+  if (!match || (parenthesized && match[1])) throw new Error("Use a valid USD amount with correct comma grouping and at most two decimal places; values are never rounded.");
+  const cents = BigInt(match[2].replaceAll(",", "")) * 100n + BigInt((match[3] ?? "").padEnd(2, "0"));
+  if (cents > 99_999_999_999_999n) throw new Error("Amount exceeds the supported database range.");
+  const negative = parenthesized || match[1] === "-";
+  return Number(negative ? -cents : cents) / 100;
+}
+
+export function statementImportFingerprint(input: Buffer, mapping: StatementImportMapping, statementId: string): string {
+  return createHash("sha256").update("statement-csv-v2\0").update(statementId).update("\0")
+    .update(JSON.stringify([mapping.transactionDateColumn, mapping.postedDateColumn ?? "", mapping.descriptionColumn,
+      mapping.amountColumn ?? "", mapping.debitColumn ?? "", mapping.creditColumn ?? "", mapping.balanceColumn ?? "",
+      mapping.dateFormat ?? "us", mapping.amountSign ?? "negative_outflow", "USD"]))
+    .update("\0").update(input).digest("hex");
+}
+
+export function statementImportTotals(rows: ParsedStatementImportRow[]) {
+  let debit = 0n, credit = 0n;
+  for (const row of rows) {
+    const cents = BigInt(row.amount.toFixed(2).replace(".", ""));
+    if (cents < 0n) debit -= cents;
+    else credit += cents;
+  }
+  if (debit > BigInt(Number.MAX_SAFE_INTEGER) || credit > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Combined statement totals exceed the safe display range. Split the file into smaller statements.");
+  }
+  return { debit_cents: Number(debit), credit_cents: Number(credit), net_cents: Number(credit - debit) };
 }
 
 export function statementLineFingerprint(row: Pick<ParsedStatementImportRow, "transaction_date" | "description" | "amount" | "balance_after">): string {
@@ -116,6 +141,7 @@ export function parseStatementCsv(input: Buffer, mapping: StatementImportMapping
     mapping.creditColumn,
     mapping.balanceColumn,
   ].filter(Boolean) as string[];
+  if (new Set(selectedColumns).size !== selectedColumns.length) throw new Error("Map each CSV column to only one field.");
   const missing = selectedColumns.filter((column) => !headerIndexes.has(column));
   if (missing.length) throw new Error(`Mapped column not found: ${missing.join(", ")}.`);
   const usesAmount = Boolean(mapping.amountColumn);
@@ -132,16 +158,19 @@ export function parseStatementCsv(input: Buffer, mapping: StatementImportMapping
   records.slice(1).forEach((record, index) => {
     const sourceRow = index + 2;
     try {
-      const transactionDate = parseDate(value(record, mapping.transactionDateColumn));
+      const transactionDate = parseDate(value(record, mapping.transactionDateColumn), mapping.dateFormat);
       const postedRaw = value(record, mapping.postedDateColumn);
       const description = value(record, mapping.descriptionColumn).trim();
       if (!description) throw new Error("Description is required.");
+      if (description.length > 1000) throw new Error("Description cannot exceed 1,000 characters.");
       let amount: number;
       if (mapping.amountColumn) {
         amount = parseMoney(value(record, mapping.amountColumn))!;
+        if (mapping.amountSign === "positive_outflow") amount = -amount;
       } else {
         const debit = parseMoney(value(record, mapping.debitColumn), true);
         const credit = parseMoney(value(record, mapping.creditColumn), true);
+        if ((debit ?? 0) < 0 || (credit ?? 0) < 0) throw new Error("Debit and credit columns must use nonnegative magnitudes.");
         if (debit != null && credit != null && debit !== 0 && credit !== 0) throw new Error("A row cannot contain both a debit and a credit.");
         if ((debit == null || debit === 0) && (credit == null || credit === 0)) throw new Error("Debit or credit is required.");
         amount = debit != null && debit !== 0 ? -Math.abs(debit) : Math.abs(credit!);
@@ -151,7 +180,7 @@ export function parseStatementCsv(input: Buffer, mapping: StatementImportMapping
       const row: ParsedStatementImportRow = {
         sourceRow,
         transaction_date: transactionDate,
-        posted_date: postedRaw ? parseDate(postedRaw) : null,
+        posted_date: postedRaw ? parseDate(postedRaw, mapping.dateFormat) : null,
         description,
         amount,
         balance_after: balanceRaw ? parseMoney(balanceRaw, true) : null,
@@ -165,5 +194,6 @@ export function parseStatementCsv(input: Buffer, mapping: StatementImportMapping
     }
   });
 
+  statementImportTotals(rows);
   return { headers, rows, errors, duplicate_rows: duplicateRows };
 }

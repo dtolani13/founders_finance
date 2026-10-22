@@ -2,6 +2,19 @@
 
 This file applies to the entire Founders Finance repository.
 
+## Verification Standard
+
+Apply **No-Proof-No-Run v2 — Minimum Sufficient Proof** to all implementation work.
+
+- Define acceptance criteria before implementation when practical.
+- Use the lowest-cost valid proof for each criterion.
+- Agent-executed technical verification counts as proof.
+- Do not require duplicate human verification unless the criterion genuinely requires human observation, credentials, hardware, subjective judgment, or owner approval.
+- Prefer targeted tests during implementation.
+- Run broader suites at meaningful phase boundaries or before merge.
+- Once every acceptance criterion has sufficient proof, stop.
+- Do not add extra verification, refactoring, or cleanup unless a real defect or requirement gap is discovered.
+
 ## Canonical Work List
 
 `docs/MASTER_TODO.md` is the single source of truth for remaining work, priority, verification status, and session handoff notes.

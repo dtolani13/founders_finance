@@ -84,9 +84,9 @@ function AddCompanyForm() {
     create.mutate({
       data: {
         ...values,
-        primary_color: "#00AEEF",
-        secondary_color: "#0B1726",
-        accent_color: "#7DD3FC",
+        primary_color: "#B87333",
+        secondary_color: "#222222",
+        accent_color: "#A7AAAF",
       },
     });
   }
@@ -477,6 +477,7 @@ export default function Settings() {
           )}
         </>
       )}
+      <footer className="border-t border-border pt-5 text-xs text-muted-foreground">Founders Finance · RCL edition<br /><span className="mt-1 inline-block">Recursive Chaos Labs — Refining Chaos Into Clarity</span></footer>
     </div>
   );
 }

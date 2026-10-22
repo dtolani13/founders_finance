@@ -868,6 +868,30 @@ export interface StatementCsvInspection {
   sample_rows: StatementCsvInspectionSampleRowsItem[];
 }
 
+export type StatementCsvImportBodyDateFormat = typeof StatementCsvImportBodyDateFormat[keyof typeof StatementCsvImportBodyDateFormat];
+
+
+export const StatementCsvImportBodyDateFormat = {
+  us: 'us',
+  iso: 'iso',
+  day_first: 'day_first',
+} as const;
+
+export type StatementCsvImportBodyAmountSign = typeof StatementCsvImportBodyAmountSign[keyof typeof StatementCsvImportBodyAmountSign];
+
+
+export const StatementCsvImportBodyAmountSign = {
+  negative_outflow: 'negative_outflow',
+  positive_outflow: 'positive_outflow',
+} as const;
+
+export type StatementCsvImportBodyCurrency = typeof StatementCsvImportBodyCurrency[keyof typeof StatementCsvImportBodyCurrency];
+
+
+export const StatementCsvImportBodyCurrency = {
+  USD: 'USD',
+} as const;
+
 export type StatementCsvImportBodySkipDuplicates = typeof StatementCsvImportBodySkipDuplicates[keyof typeof StatementCsvImportBodySkipDuplicates];
 
 
@@ -885,7 +909,18 @@ export interface StatementCsvImportBody {
   debit_column?: string;
   credit_column?: string;
   balance_column?: string;
+  date_format: StatementCsvImportBodyDateFormat;
+  amount_sign: StatementCsvImportBodyAmountSign;
+  currency: StatementCsvImportBodyCurrency;
+  /** Fingerprint returned by preview; required for commit and bound to file, mapping, conventions and statement. */
+  preview_fingerprint?: string;
   skip_duplicates?: StatementCsvImportBodySkipDuplicates;
+}
+
+export interface StatementCsvTotals {
+  debit_cents: number;
+  credit_cents: number;
+  net_cents: number;
 }
 
 export interface StatementCsvImportRow {
@@ -902,7 +937,19 @@ export interface StatementCsvRowError {
   message: string;
 }
 
+export type StatementCsvPreviewCurrency = typeof StatementCsvPreviewCurrency[keyof typeof StatementCsvPreviewCurrency];
+
+
+export const StatementCsvPreviewCurrency = {
+  USD: 'USD',
+} as const;
+
 export interface StatementCsvPreview {
+  preview_fingerprint: string;
+  currency: StatementCsvPreviewCurrency;
+  totals: StatementCsvTotals;
+  importable_totals: StatementCsvTotals;
+  rows: StatementCsvImportRow[];
   total_rows: number;
   valid_rows: number;
   errors: StatementCsvRowError[];

@@ -1883,10 +1883,34 @@ export const PreviewStatementCsvBody = zod.object({
   "debit_column": zod.string().optional(),
   "credit_column": zod.string().optional(),
   "balance_column": zod.string().optional(),
+  "date_format": zod.enum(['us', 'iso', 'day_first']),
+  "amount_sign": zod.enum(['negative_outflow', 'positive_outflow']),
+  "currency": zod.enum(['USD']),
+  "preview_fingerprint": zod.string().optional().describe('Fingerprint returned by preview; required for commit and bound to file, mapping, conventions and statement.'),
   "skip_duplicates": zod.enum(['true', 'false']).optional()
 })
 
 export const PreviewStatementCsvResponse = zod.object({
+  "preview_fingerprint": zod.string(),
+  "currency": zod.enum(['USD']),
+  "totals": zod.object({
+  "debit_cents": zod.number(),
+  "credit_cents": zod.number(),
+  "net_cents": zod.number()
+}),
+  "importable_totals": zod.object({
+  "debit_cents": zod.number(),
+  "credit_cents": zod.number(),
+  "net_cents": zod.number()
+}),
+  "rows": zod.array(zod.object({
+  "sourceRow": zod.number(),
+  "transaction_date": zod.coerce.date(),
+  "posted_date": zod.coerce.date().nullish(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "balance_after": zod.number().nullish()
+})),
   "total_rows": zod.number(),
   "valid_rows": zod.number(),
   "errors": zod.array(zod.object({
@@ -1923,6 +1947,10 @@ export const ImportStatementCsvBody = zod.object({
   "debit_column": zod.string().optional(),
   "credit_column": zod.string().optional(),
   "balance_column": zod.string().optional(),
+  "date_format": zod.enum(['us', 'iso', 'day_first']),
+  "amount_sign": zod.enum(['negative_outflow', 'positive_outflow']),
+  "currency": zod.enum(['USD']),
+  "preview_fingerprint": zod.string().optional().describe('Fingerprint returned by preview; required for commit and bound to file, mapping, conventions and statement.'),
   "skip_duplicates": zod.enum(['true', 'false']).optional()
 })
 

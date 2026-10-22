@@ -1,10 +1,12 @@
-# Founders Finance
+# Founders Finance — RCL edition
 
 Founders Finance is a private, local-first financial operations workspace for a single owner managing multiple companies and personal records. It keeps each company separate while tracking expenses, allocations, intercompany balances, owner contributions and draws, reimbursements, tax reserves, evidence, statements, monthly close, audit history, exports, and encrypted recovery packages.
 
+This branch is the RCL source edition. See [RCL edition and original-color preservation](docs/RCL_EDITION.md), [reviewed statement ingestion](docs/STATEMENT_INGESTION.md), and [fresh verification evidence](docs/VERIFICATION_2026-10-22.md). The original installed application and the historical blue-edition release files remain separate from this review fork.
+
 ## Release Status
 
-The current build is approved for controlled personal use on the owner's local machine. Public hosting, multi-user access, and commercial SaaS deployment are intentionally outside this release.
+This RCL source build is verified for the scoped local review described in the verification record. Public hosting, multi-user access, and commercial SaaS deployment are intentionally outside this release.
 
 Before repository work, follow the session protocol in [Master TODO](docs/MASTER_TODO.md) and [AGENTS.md](AGENTS.md).
 
@@ -21,11 +23,11 @@ Before repository work, follow the session protocol in [Master TODO](docs/MASTER
 
 ## Quick Start
 
-### Daily use on this machine
+### Original blue edition installed on this machine
 
 Open **Founders Finance** from the Desktop or Start Menu shortcut. The native launcher starts the local database, API, and verified production web application when needed, then opens Founders Finance in its own Microsoft Edge app window.
 
-The launcher executable is `release/Founders Finance.exe`. The Start Menu shortcut can be right-clicked and pinned to the taskbar.
+The launcher executable is `release/Founders Finance.exe`. The Start Menu shortcut can be right-clicked and pinned to the taskbar. These retained release artifacts start the original edition; use the source setup below for this RCL fork.
 
 ### Repository setup
 

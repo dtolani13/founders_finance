@@ -1,0 +1,40 @@
+/* RCL edition overrides. The original blue theme remains in index.css and the baseline tag. */
+:root[data-brand="rcl"] {
+  --background: 0 0% 9.4%;
+  --foreground: 43 26% 94.7%;
+  --card: 0 0% 13.3%;
+  --card-foreground: 43 26% 94.7%;
+  --card-border: 30 5% 28%;
+  --popover: 0 0% 13.3%;
+  --popover-foreground: 43 26% 94.7%;
+  --popover-border: 30 5% 28%;
+  --primary: 29 56% 46%;
+  --primary-foreground: 0 0% 7%;
+  --secondary: 30 5% 23%;
+  --secondary-foreground: 43 26% 94.7%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 218 5% 67%;
+  --accent: 29 52% 59%;
+  --accent-foreground: 0 0% 7%;
+  --border: 30 5% 28%;
+  --input: 30 5% 44%;
+  --ring: 29 52% 59%;
+  --radius: 0.4rem;
+  --app-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+html[data-brand="rcl"] body { background: #181818; }
+.rcl-sidebar { background: #141414; }
+.rcl-accent { color: #cd945f; }
+.rcl-nav-active { border-color: #79502f; background: #b873331a; color: #f5f3ee; box-shadow: inset 3px 0 #b87333; }
+.rcl-nav-idle { color: #a7aaaf; }
+.rcl-nav-idle:hover { background: #ffffff08; color: #f5f3ee; }
+.rcl-login { background: radial-gradient(ellipse at 12% 30%, #b8733310, transparent 52%), #181818; }
+.rcl-login-panel { background: #202020; }
+html[data-brand="rcl"] .text-primary { color: #cd945f; }
+html[data-brand="rcl"] .text-destructive { color: #f87171; }
+html[data-brand="rcl"] button.bg-primary { color: #121212; }
+@media print {
+  html[data-brand="rcl"] body { background: white !important; }
+  .print-export-header { border-bottom-color: #8b5126; }
+  .print-export-header .print-brand { color: #8b5126; }
+}

@@ -1,7 +1,8 @@
+import { accountFieldsWithBalance } from "../services/account-balances";
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { tax_reserve_rules, entities, accounts, transactions } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { tax_reserve_rules, entities, accounts, transactions, transaction_lines } from "@workspace/db";
+import { and, eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { writeAuditLog } from "../lib/audit";
 
@@ -11,18 +12,21 @@ router.get("/summary", async (req, res) => {
   try {
     const allEntities = await db.select().from(entities).where(eq(entities.is_active, true));
     const allRules = await db.select().from(tax_reserve_rules);
-    const allAccounts = await db.select().from(accounts).where(eq(accounts.is_tax_reserve, true));
-    const allTx = await db.select().from(transactions);
+    const allAccounts = await db.select(accountFieldsWithBalance).from(accounts).where(and(eq(accounts.is_tax_reserve, true), eq(accounts.is_active, true)));
+    const revenueByEntity = await db.select({
+      entity_id: transaction_lines.entity_id,
+      amount: sql<string>`sum(${transaction_lines.debit})`,
+    }).from(transactions).innerJoin(transaction_lines, eq(transaction_lines.transaction_id, transactions.id))
+      .where(and(eq(transactions.transaction_type, "revenue"), eq(transactions.status, "posted")))
+      .groupBy(transactions.id, transaction_lines.entity_id)
+      .orderBy(desc(transactions.transaction_date), desc(transactions.created_at), desc(transactions.id));
 
     const summaries = allEntities.map(entity => {
       const rule = allRules.find(r => r.entity_id === entity.id && r.is_active);
       const reserveAccounts = allAccounts.filter(a => a.entity_id === entity.id);
       const current_reserve_balance = reserveAccounts.reduce((s, a) => s + parseFloat(String(a.current_balance || 0)), 0);
 
-      const revenueTx = allTx.filter(t => t.transaction_type === "revenue");
-      const last_revenue_amount = revenueTx.length
-        ? parseFloat(String(revenueTx[revenueTx.length - 1].total_amount))
-        : 0;
+      const last_revenue_amount = Number(revenueByEntity.find((entry) => entry.entity_id === entity.id)?.amount ?? 0);
 
       const suggested_set_aside = rule
         ? last_revenue_amount * (parseFloat(String(rule.reserve_percent)) / 100)

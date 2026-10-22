@@ -3746,10 +3746,33 @@ components:
           type: string
         balance_column:
           type: string
+        date_format:
+          type: string
+          enum: [us, iso, day_first]
+        amount_sign:
+          type: string
+          enum: [negative_outflow, positive_outflow]
+        currency:
+          type: string
+          enum: [USD]
+        preview_fingerprint:
+          type: string
+          description: Fingerprint returned by preview; required for commit and bound to file, mapping, conventions and statement.
         skip_duplicates:
           type: string
           enum: ["true", "false"]
-      required: [file, transaction_date_column, description_column]
+      required: [file, transaction_date_column, description_column, date_format, amount_sign, currency]
+
+    StatementCsvTotals:
+      type: object
+      properties:
+        debit_cents:
+          type: integer
+        credit_cents:
+          type: integer
+        net_cents:
+          type: integer
+      required: [debit_cents, credit_cents, net_cents]
 
     StatementCsvImportRow:
       type: object
@@ -3784,6 +3807,19 @@ components:
     StatementCsvPreview:
       type: object
       properties:
+        preview_fingerprint:
+          type: string
+        currency:
+          type: string
+          enum: [USD]
+        totals:
+          $ref: "#/components/schemas/StatementCsvTotals"
+        importable_totals:
+          $ref: "#/components/schemas/StatementCsvTotals"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatementCsvImportRow"
         total_rows:
           type: integer
         valid_rows:
@@ -3806,7 +3842,7 @@ components:
             $ref: "#/components/schemas/StatementCsvImportRow"
         ready_to_import:
           type: boolean
-      required: [total_rows, valid_rows, errors, in_file_duplicate_rows, existing_duplicate_rows, sample_rows, ready_to_import]
+      required: [preview_fingerprint, currency, totals, importable_totals, rows, total_rows, valid_rows, errors, in_file_duplicate_rows, existing_duplicate_rows, sample_rows, ready_to_import]
 
     StatementCsvImportResult:
       type: object

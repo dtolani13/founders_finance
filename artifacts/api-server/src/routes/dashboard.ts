@@ -1,3 +1,4 @@
+import { accountFieldsWithBalance } from "../services/account-balances";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -12,7 +13,7 @@ const router = Router();
 router.get("/summary", async (req, res) => {
   try {
     const allEntities = await db.select().from(entities).where(eq(entities.is_active, true));
-    const allAccounts = await db.select().from(accounts).where(eq(accounts.is_active, true));
+    const allAccounts = await db.select(accountFieldsWithBalance).from(accounts).where(eq(accounts.is_active, true));
     const allIntercompany = await db.select().from(intercompany_links);
     const allReimbursements = await db.select().from(reimbursement_requests);
     const allDocuments = await db.select({
@@ -75,7 +76,7 @@ router.get("/summary", async (req, res) => {
     const entityCards = allEntities.map(entity => {
       const entityAccounts = allAccounts.filter(a => a.entity_id === entity.id);
       const taxReserveAccounts = entityAccounts.filter(a => a.is_tax_reserve);
-      const operatingAccounts = entityAccounts.filter(a => !a.is_tax_reserve);
+      const operatingAccounts = entityAccounts.filter(a => !a.is_tax_reserve && ["checking", "savings", "cash"].includes(a.account_type));
 
       const operating_cash = operatingAccounts.reduce((s, a) => s + parseFloat(String(a.current_balance || 0)), 0);
       const tax_reserve_balance = taxReserveAccounts.reduce((s, a) => s + parseFloat(String(a.current_balance || 0)), 0);

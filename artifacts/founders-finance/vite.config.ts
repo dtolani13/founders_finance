@@ -33,8 +33,8 @@ export default defineConfig({
   server: {
     port,
     strictPort: true,
-    host: "0.0.0.0",
-    allowedHosts: true,
+    host: "127.0.0.1",
+    allowedHosts: ["localhost"],
     proxy: {
       "/api": {
         target: process.env.API_URL ?? "http://127.0.0.1:8081",
@@ -47,8 +47,8 @@ export default defineConfig({
   },
   preview: {
     port,
-    host: "0.0.0.0",
-    allowedHosts: true,
+    host: "127.0.0.1",
+    allowedHosts: ["localhost"],
     proxy: {
       "/api": {
         target: process.env.API_URL ?? "http://127.0.0.1:8081",

@@ -640,6 +640,11 @@ export async function matchStatementLine(
         "RECONCILIATION_ACCOUNT_MISMATCH",
       );
     }
+    const accountCents = matchingLines.filter((line) => line.account_id === account.id)
+      .reduce((total, line) => total + Math.round(Number(line.debit) * 100) - Math.round(Number(line.credit) * 100), 0);
+    if (accountCents !== Math.round(Number(record.line.amount) * 100)) {
+      throw new FinancialOperationError("The transaction amount for this account must match the statement line.", 400, "RECONCILIATION_AMOUNT_MISMATCH");
+    }
     const updated = await tx.update(statement_lines).set({
       matched_transaction_id: transaction.id,
       status: "matched",
@@ -693,13 +698,13 @@ export async function archiveStatement(statementId: string) {
 export async function importStatementLines(
   statementId: string,
   importedRows: ParsedStatementImportRow[],
-  options: { skipDuplicates: boolean; sourceFileName: string },
+  options: { skipDuplicates: boolean; sourceFileName?: string; sourceDigest?: string },
 ) {
   return db.transaction(async (tx) => {
     const records = await tx.select({ statement: statements, account: accounts })
       .from(statements)
       .innerJoin(accounts, eq(statements.account_id, accounts.id))
-      .where(eq(statements.id, statementId));
+      .where(eq(statements.id, statementId)).for("update");
     const record = records[0];
     if (!record) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
     if (record.statement.archived_at) throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
@@ -709,14 +714,24 @@ export async function importStatementLines(
       await requireOpenPeriod(tx, [record.account.entity_id], operationDate);
     }
 
-    const existingRows = await tx.select().from(statement_lines).where(eq(statement_lines.statement_id, statementId));
+    // Lock the account before checking any of its statements, including archived
+    // ones. Concurrent retries and overlapping monthly exports share this lock.
+    const existingRows = await tx.select({ line: statement_lines }).from(statement_lines)
+      .innerJoin(statements, eq(statement_lines.statement_id, statements.id))
+      .where(eq(statements.account_id, record.account.id)).then((rows) => rows.map((row) => row.line));
     const existingFingerprints = new Set(existingRows.filter((row) => row.transaction_date).map((row) => statementLineFingerprint({
       transaction_date: row.transaction_date!,
       description: row.description ?? "",
       amount: Number(row.amount),
       balance_after: row.balance_after == null ? null : Number(row.balance_after),
     })));
-    const duplicateRows = importedRows.filter((row) => existingFingerprints.has(statementLineFingerprint(row)));
+    const duplicateRows: ParsedStatementImportRow[] = [];
+    const rowsToInsert: ParsedStatementImportRow[] = [];
+    for (const row of importedRows) {
+      const fingerprint = statementLineFingerprint(row);
+      if (existingFingerprints.has(fingerprint)) duplicateRows.push(row);
+      else { existingFingerprints.add(fingerprint); rowsToInsert.push(row); }
+    }
     if (duplicateRows.length && !options.skipDuplicates) {
       throw new FinancialOperationError(
         `${duplicateRows.length} imported row${duplicateRows.length === 1 ? " matches" : "s match"} existing statement data. Review or choose Skip duplicates.`,
@@ -724,7 +739,6 @@ export async function importStatementLines(
         "STATEMENT_IMPORT_DUPLICATES",
       );
     }
-    const rowsToInsert = importedRows.filter((row) => !existingFingerprints.has(statementLineFingerprint(row)));
     if (!rowsToInsert.length) {
       throw new FinancialOperationError("Every imported row is already present on this statement.", 409, "STATEMENT_IMPORT_ALL_DUPLICATES");
     }
@@ -736,7 +750,7 @@ export async function importStatementLines(
       description: row.description,
       amount: row.amount.toFixed(2),
       balance_after: row.balance_after == null ? null : row.balance_after.toFixed(2),
-      notes: `Imported from ${options.sourceFileName}, CSV row ${row.sourceRow}.`,
+      notes: `Reviewed CSV import, source row ${row.sourceRow}.`,
       status: "unmatched",
     }))).returning();
     await tx.update(statements).set({ status: "reconciling", updated_at: new Date() }).where(eq(statements.id, statementId));
@@ -744,9 +758,9 @@ export async function importStatementLines(
       tableName: "statements",
       recordId: statementId,
       action: "import_csv",
-      previousValue: { line_count: existingRows.length },
+      previousValue: { line_count: existingRows.filter((row) => row.statement_id === statementId).length },
       newValue: {
-        source_file_name: options.sourceFileName,
+        source_fingerprint: options.sourceDigest ?? null,
         inserted_count: inserted.length,
         skipped_duplicate_count: duplicateRows.length,
         imported_source_rows: rowsToInsert.map((row) => row.sourceRow),

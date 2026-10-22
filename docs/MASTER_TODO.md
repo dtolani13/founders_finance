@@ -2,7 +2,17 @@
 
 This is the canonical source of truth for repository priority, completion status, verification evidence, and session handoff.
 
-Last repository alignment review: **2026-07-19**
+Last repository alignment review: **2026-10-22** (RCL fork; July evidence below remains historical)
+
+## Active RCL fork — 2026-10-22
+
+- [x] Preserve original blue edition and compare GitHub/local source. Both main heads are `88b2840`; local AGENTS verification update is preserved. Tag `original-blue-2026-10-22` and branch `brand/rcl-2026-10-22` are in the isolated checkout; original CSS/assets unchanged.
+- [x] Apply the exact approved RCL emblem/palette to login, app shell, phone header/drawer, favicon and product attribution. Real desktop/mobile rendering verified; seven website screenshots use synthetic data and include captions/alt text.
+- [x] Harden statement ingestion: strict cents, explicit conventions, full preview with totals, preview binding, account-level concurrency and overlap checks, minimal provenance, reviewed unmatched lines only. Real browser import and exact-amount matching completed; state survived restart.
+- [x] Correct derived account balances and entity-specific posted revenue in tax summaries. Automated fixtures cover posted/draft/void behavior and cross-company isolation; live synthetic cash totals agree.
+- [x] Verify local host/origin boundaries, root typecheck/build, 39 tests, seven migrations, synthetic encrypted backup/restore and all 17 navigation destinations. Fresh evidence is in `docs/VERIFICATION_2026-10-22.md`.
+
+Discovery corrections: the old CSV parser rounded excess decimals and accepted malformed grouping/signed debit magnitudes; duplicate lookup was not serialized; stored cash balances were stale and tax summaries could use another company's revenue. These defects are corrected and covered by fresh evidence. July records below remain historical, including native packaging claims. See `docs/SITE-SURVEY.md` for bounded acceptance and deferrals.
 
 ## Status Key
 
@@ -205,6 +215,15 @@ Repository alignment and runtime evidence were verified through the 2026-07-19 p
 - Project content, tracked filenames, generated output, and Git history remain clear of prohibited hosted-builder branding and legacy product naming.
 
 ## Session Log
+
+### 2026-10-22 - RCL source fork, ingestion review and website assets
+
+- Completed: compared canonical local/GitHub main at `88b2840`, preserved the blue tag and original files, created the separate RCL branch, retained the owner's AGENTS v2 update, and copied the exact approved copper/silver emblem from the corrected FoundersVaultOS edition.
+- Completed: explicit USD/date/sign mapping, strict parsing, full review/totals, input fingerprint, serialized cross-statement duplicate checks, transactional provenance, and exact-amount reconciliation. Corrected ledger-derived cash and per-entity posted revenue in tax summaries. Restricted services to local host/origin boundaries.
+- Verification: 39 tests passed with no skips; root typecheck and production builds passed; generated clients match the updated OpenAPI source; empty/current-copy migrations preserve rows; encrypted recovery restores 24 tables and one evidence fixture. Live browser import/reconciliation, restart persistence, all 17 routes, and phone navigation/layout pass.
+- Deliverables: seven actual desktop/phone screenshots with synthetic data, captions, alt text and file hashes; source/design/ingestion/verification documentation. Original installed application and owner books remain untouched.
+- Unresolved: four existing build sourcemap notices; native RCL installer, external hosting, PDF/OCR, FX and formal accessibility certification remain outside scope. No scoped acceptance blocker remains.
+- Next action: use the RCL source review and screenshot pack; before connecting existing books, take an encrypted backup and reconcile opening balances. Public website publication and an installed upgrade are separate release actions.
 
 ### 2026-07-19 - Editable Word owner guide and reader-friendly pagination
 

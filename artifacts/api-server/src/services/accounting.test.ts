@@ -307,7 +307,7 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
       assert.equal(defaultAccounts.some((account) => account.is_tax_reserve), true);
       const intentionallyInactiveAccountId = defaultAccounts[1].id;
       await db.update(accounts).set({ is_active: false }).where(eq(accounts.id, intentionallyInactiveAccountId));
-      await db.update(accounts).set({ current_balance: "125.00" }).where(eq(accounts.id, defaultAccounts[0].id));
+      await db.update(accounts).set({ opening_balance: "125.00", current_balance: "125.00" }).where(eq(accounts.id, defaultAccounts[0].id));
       const closureAssessment = await lifecycle.assessCompanyClosure(created.id);
       assert.equal(closureAssessment.nonzero_accounts.length, 1);
       assert.equal(closureAssessment.warnings.some((warning) => warning.includes("non-zero balance")), true);
@@ -588,7 +588,14 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
         amount: "-25.00",
         status: "unmatched",
       }).returning();
-      const matched = await operations.matchStatementLine(line.id, {
+        await db.update(statement_lines).set({ amount: "-24.99" }).where(eq(statement_lines.id, line.id));
+        await assert.rejects(
+          operations.matchStatementLine(line.id, { transaction_id: transaction.id, match_type: "manual" }),
+          (error: unknown) => error instanceof operations.FinancialOperationError && error.code === "RECONCILIATION_AMOUNT_MISMATCH",
+        );
+        assert.equal((await db.select().from(reconciliation_matches).where(eq(reconciliation_matches.statement_line_id, line.id))).length, 0);
+        await db.update(statement_lines).set({ amount: "-25.00" }).where(eq(statement_lines.id, line.id));
+        const matched = await operations.matchStatementLine(line.id, {
         transaction_id: transaction.id,
         match_type: "manual",
       });
@@ -649,6 +656,39 @@ test("accounting writes are atomic, guarded, balanced, and audited", async (t) =
         (await db.select().from(audit_log).where(eq(audit_log.record_id, statement.id))).filter((audit) => audit.action === "import_csv").length,
         2,
       );
+    });
+
+    await t.test("concurrent imports and overlapping account statements cannot duplicate source rows", async () => {
+      const [firstStatement, secondStatement] = await db.insert(statements).values([
+        {account_id:accountA.id,statement_month:"2027-01-01",status:"uploaded"},
+        {account_id:accountA.id,statement_month:"2027-02-01",status:"uploaded"},
+      ]).returning();
+      const row = {sourceRow:2,transaction_date:"2027-01-22",posted_date:null,description:"Concurrent fixture",amount:-12.34,balance_after:null};
+      const attempts = await Promise.allSettled([
+        operations.importStatementLines(firstStatement.id,[row],{skipDuplicates:false,sourceDigest:"fixture"}),
+        operations.importStatementLines(firstStatement.id,[row],{skipDuplicates:false,sourceDigest:"fixture"}),
+      ]);
+      assert.equal(attempts.filter((result) => result.status === "fulfilled").length,1);
+      assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id, firstStatement.id))).length,1);
+      await assert.rejects(operations.importStatementLines(secondStatement.id,[row],{skipDuplicates:false}),
+        (error:unknown) => error instanceof operations.FinancialOperationError && error.code === "STATEMENT_IMPORT_DUPLICATES");
+      const [audit] = (await db.select().from(audit_log).where(eq(audit_log.record_id,firstStatement.id))).filter((entry) => entry.action === "import_csv");
+      assert.ok(audit);
+      assert.equal(JSON.stringify(audit).includes("source_file_name"),false);
+    });
+
+    await t.test("required import audit failure rolls back lines and statement status", async () => {
+      const [statement] = await db.insert(statements).values({account_id:accountA.id,statement_month:"2027-03-01",status:"uploaded"}).returning();
+      await db.execute(sql`create function reject_review_import_audit() returns trigger language plpgsql as $$ begin if NEW.action = 'import_csv' then raise exception 'synthetic audit refusal'; end if; return NEW; end $$`);
+      await db.execute(sql`create trigger reject_review_import_audit before insert on audit_log for each row execute function reject_review_import_audit()`);
+      try {
+        await assert.rejects(operations.importStatementLines(statement.id,[{sourceRow:2,transaction_date:"2027-03-22",posted_date:null,description:"Rollback fixture",amount:-7.89,balance_after:null}],{skipDuplicates:false}));
+        assert.equal((await db.select().from(statement_lines).where(eq(statement_lines.statement_id,statement.id))).length,0);
+        assert.equal((await db.select().from(statements).where(eq(statements.id,statement.id)))[0].status,"uploaded");
+      } finally {
+        await db.execute(sql`drop trigger reject_review_import_audit on audit_log`);
+        await db.execute(sql`drop function reject_review_import_audit()`);
+      }
     });
 
     await t.test("closed periods reject settlement, reimbursement, contribution, and reconciliation writes", async () => {

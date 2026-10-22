@@ -27,7 +27,7 @@
     "backup:acceptance": "pnpm --filter @workspace/scripts run backup:acceptance",
     "recovery:drill": "pnpm --filter @workspace/scripts run verify-restore",
     "verify-restore": "pnpm --filter @workspace/scripts run verify-restore",
-    "test": "tsx --test artifacts/api-server/src/lib/auth.test.ts artifacts/api-server/src/services/accounting.test.ts artifacts/api-server/src/services/evidence-storage.test.ts artifacts/api-server/src/services/exports.test.ts artifacts/api-server/src/services/mutation-audit.test.ts artifacts/api-server/src/services/statement-import.test.ts lib/backup/src/index.test.ts"
+    "test": "tsx --test artifacts/api-server/src/lib/auth.test.ts artifacts/api-server/src/services/accounting.test.ts artifacts/api-server/src/services/evidence-storage.test.ts artifacts/api-server/src/services/exports.test.ts artifacts/api-server/src/services/mutation-audit.test.ts artifacts/api-server/src/services/statement-import.test.ts artifacts/api-server/src/services/statement-http.test.ts lib/backup/src/index.test.ts"
   },
   "private": true,
   "devDependencies": {

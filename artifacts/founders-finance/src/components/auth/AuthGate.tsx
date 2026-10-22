@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
+import { StudioSignature } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -155,9 +156,9 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (!status) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#030914] text-slate-100">
-        <div className="flex items-center gap-3 text-sm font-semibold text-slate-300">
-          <LoaderCircle className="h-5 w-5 animate-spin text-sky-400" />
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <div className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
+          <LoaderCircle className="h-5 w-5 animate-spin rcl-accent" />
           Securing workspace
         </div>
       </div>
@@ -167,62 +168,41 @@ export function AuthGate({ children }: AuthGateProps) {
   const isSetup = !status.configured;
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#030914] text-slate-100">
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(2,8,23,0.98)_0%,rgba(3,13,27,0.96)_52%,rgba(2,25,43,0.88)_100%)]" />
-      <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-sky-300 via-sky-500 to-blue-700" />
-
+    <main className="relative min-h-screen overflow-x-hidden rcl-login text-foreground">
       <div className="relative mx-auto grid min-h-screen w-full min-w-0 max-w-7xl grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="flex min-w-0 flex-col justify-between px-6 py-4 sm:px-10 sm:py-8 lg:px-16 lg:py-14">
-          <div className="min-w-0">
-            <img
-              src="/brand/founders-finance-logo-reference-highres.png"
-              alt="Founders Finance. Where Cash Flows. Where Every Dollar Goes."
-              className="block h-auto w-full max-w-[360px] object-contain object-left mix-blend-screen sm:max-w-[480px] lg:max-w-[560px]"
-            />
-          </div>
+          <StudioSignature />
 
-          <div className="my-14 hidden max-w-xl lg:my-10 lg:block">
-            <p className="mb-5 font-mono text-xs font-bold uppercase tracking-[0.22em] text-sky-300">
-              Private financial control center
+          <div className="my-8 max-w-xl lg:my-14">
+            <p className="mb-5 text-lg font-semibold rcl-accent">
+              Founders Finance
             </p>
-            <h1 className="max-w-lg text-4xl font-black leading-tight tracking-normal text-white sm:text-5xl">
+            <h1 className="max-w-lg text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
               {isSetup
                 ? "Protect the books before they open."
-                : "Your companies. Your numbers. Your control."}
+                : "Clarity across every company."}
             </h1>
-            <div className="mt-8 grid max-w-lg gap-3 sm:grid-cols-2">
-              <div className="flex items-center gap-3 border-l-2 border-sky-400 bg-slate-950/35 px-4 py-3">
-                <ShieldCheck className="h-5 w-5 text-sky-300" />
-                <span className="text-sm font-semibold text-slate-200">
-                  Server-enforced access
-                </span>
-              </div>
-              <div className="flex items-center gap-3 border-l-2 border-blue-500 bg-slate-950/35 px-4 py-3">
-                <LockKeyhole className="h-5 w-5 text-blue-300" />
-                <span className="text-sm font-semibold text-slate-200">
-                  Private owner session
-                </span>
-              </div>
-            </div>
+            <p className="mt-5 max-w-md text-base leading-7 text-muted-foreground">Follow the money, reconcile the details, and close each month with a clear view of your books.</p>
+            <div className="mt-7 hidden items-center gap-3 text-sm text-muted-foreground lg:flex"><ShieldCheck className="h-4 w-4 rcl-accent" />Private, local owner workspace</div>
           </div>
 
-          <p className="hidden font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500 lg:block">
-            Founders Finance Control Workspace
+          <p className="hidden font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground lg:block">
+            Where Cash Flows. Where Every Dollar Goes.
           </p>
         </section>
 
-        <section className="flex min-w-0 items-center border-t border-slate-800/90 bg-[#07111f]/92 px-6 py-8 sm:px-10 sm:py-10 lg:border-l lg:border-t-0 lg:px-14 lg:py-12">
+        <section className="flex min-w-0 items-center border-t border-border rcl-login-panel px-6 py-8 sm:px-10 sm:py-10 lg:border-l lg:border-t-0 lg:px-14 lg:py-12">
           <div className="min-w-0 w-full max-w-md lg:mx-auto">
-            <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-md border border-sky-400/50 bg-sky-400/10 text-sky-300 shadow-[0_0_30px_rgba(14,165,233,0.16)]">
+            <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-md border border-primary/40 bg-primary/10 rcl-accent">
               <KeyRound className="h-5 w-5" />
             </div>
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-sky-300">
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] rcl-accent">
               {isSetup ? "First-run security" : "Owner access"}
             </p>
-            <h2 className="mt-3 text-3xl font-black tracking-normal text-white">
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
               {isSetup ? "Create your passphrase" : "Unlock workspace"}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               {isSetup
                 ? "Use at least 12 characters. This passphrase protects access to every company record in this installation."
                 : "Enter the owner passphrase to access company records and financial operations."}
@@ -232,7 +212,7 @@ export function AuthGate({ children }: AuthGateProps) {
               <div className="space-y-2">
                 <Label
                   htmlFor="owner-passphrase"
-                  className="text-sm font-semibold text-slate-200"
+                  className="text-sm font-semibold text-foreground"
                 >
                   Owner passphrase
                 </Label>
@@ -247,12 +227,12 @@ export function AuthGate({ children }: AuthGateProps) {
                     maxLength={128}
                     autoFocus
                     required
-                    className="h-12 border-slate-600 bg-slate-950/70 pr-12 text-base text-white placeholder:text-slate-600 focus-visible:border-sky-400 focus-visible:ring-sky-400/60"
+                    className="h-12 border-input bg-background pr-12 text-base text-foreground placeholder:text-slate-600 focus-visible:border-ring focus-visible:ring-ring/60"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((visible) => !visible)}
-                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400"
+                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     aria-label={
                       showPassword ? "Hide passphrase" : "Show passphrase"
                     }
@@ -270,7 +250,7 @@ export function AuthGate({ children }: AuthGateProps) {
                 <div className="space-y-2">
                   <Label
                     htmlFor="confirm-passphrase"
-                    className="text-sm font-semibold text-slate-200"
+                    className="text-sm font-semibold text-foreground"
                   >
                     Confirm passphrase
                   </Label>
@@ -283,7 +263,7 @@ export function AuthGate({ children }: AuthGateProps) {
                     minLength={12}
                     maxLength={128}
                     required
-                    className="h-12 border-slate-600 bg-slate-950/70 text-base text-white focus-visible:border-sky-400 focus-visible:ring-sky-400/60"
+                    className="h-12 border-input bg-background text-base text-foreground focus-visible:border-ring focus-visible:ring-ring/60"
                   />
                 </div>
               )}
@@ -308,7 +288,7 @@ export function AuthGate({ children }: AuthGateProps) {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="h-12 w-full border-sky-300 bg-sky-400 font-bold text-slate-950 shadow-[0_12px_30px_rgba(14,165,233,0.2)] hover:bg-sky-300"
+                className="h-12 w-full font-semibold"
               >
                 {submitting ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -323,7 +303,7 @@ export function AuthGate({ children }: AuthGateProps) {
               </Button>
             </form>
 
-            <p className="mt-6 text-xs leading-5 text-slate-500">
+            <p className="mt-6 text-xs leading-5 text-muted-foreground">
               Sessions expire automatically after 12 hours. Repeated failed
               attempts temporarily lock access.
             </p>

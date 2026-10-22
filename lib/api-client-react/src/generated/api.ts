@@ -5284,6 +5284,12 @@ if(statementCsvImportBody.credit_column !== undefined) {
 if(statementCsvImportBody.balance_column !== undefined) {
  formData.append(`balance_column`, statementCsvImportBody.balance_column);
  }
+formData.append(`date_format`, statementCsvImportBody.date_format);
+formData.append(`amount_sign`, statementCsvImportBody.amount_sign);
+formData.append(`currency`, statementCsvImportBody.currency);
+if(statementCsvImportBody.preview_fingerprint !== undefined) {
+ formData.append(`preview_fingerprint`, statementCsvImportBody.preview_fingerprint);
+ }
 if(statementCsvImportBody.skip_duplicates !== undefined) {
  formData.append(`skip_duplicates`, statementCsvImportBody.skip_duplicates);
  }
@@ -5376,6 +5382,12 @@ if(statementCsvImportBody.credit_column !== undefined) {
  }
 if(statementCsvImportBody.balance_column !== undefined) {
  formData.append(`balance_column`, statementCsvImportBody.balance_column);
+ }
+formData.append(`date_format`, statementCsvImportBody.date_format);
+formData.append(`amount_sign`, statementCsvImportBody.amount_sign);
+formData.append(`currency`, statementCsvImportBody.currency);
+if(statementCsvImportBody.preview_fingerprint !== undefined) {
+ formData.append(`preview_fingerprint`, statementCsvImportBody.preview_fingerprint);
  }
 if(statementCsvImportBody.skip_duplicates !== undefined) {
  formData.append(`skip_duplicates`, statementCsvImportBody.skip_duplicates);

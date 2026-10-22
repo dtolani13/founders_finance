@@ -1,3 +1,4 @@
+import { accountFieldsWithBalance } from "./account-balances";
 import { accounts, db, documents, entities, intercompany_links, reimbursement_requests, statement_lines, statements } from "@workspace/db";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { writeAuditLog } from "../lib/audit";
@@ -45,9 +46,9 @@ export async function createCompany(input: {
       entity_type: input.entity_type,
       purpose: input.purpose ?? null,
       tax_classification_note: input.tax_classification_note ?? null,
-      primary_color: input.primary_color ?? "#00AEEF",
-      secondary_color: input.secondary_color ?? "#0B1726",
-      accent_color: input.accent_color ?? "#7DD3FC",
+      primary_color: input.primary_color ?? "#B87333",
+      secondary_color: input.secondary_color ?? "#222222",
+      accent_color: input.accent_color ?? "#A7AAAF",
       lifecycle_status: "active",
       is_active: true,
     }).returning();
@@ -87,7 +88,7 @@ export async function assessCompanyClosure(companyId: string) {
   const companyRows = await db.select().from(entities).where(eq(entities.id, companyId));
   const company = companyRows[0];
   if (!company) throw new CompanyLifecycleError("Company not found.", 404, "COMPANY_NOT_FOUND");
-  const companyAccounts = await db.select().from(accounts).where(eq(accounts.entity_id, companyId));
+  const companyAccounts = await db.select(accountFieldsWithBalance).from(accounts).where(eq(accounts.entity_id, companyId));
   const nonzeroAccounts = companyAccounts.filter((account) => Math.abs(Number(account.current_balance)) >= 0.01);
   const openIntercompany = await db.select().from(intercompany_links).where(and(
     or(eq(intercompany_links.owing_entity_id, companyId), eq(intercompany_links.owed_entity_id, companyId)),

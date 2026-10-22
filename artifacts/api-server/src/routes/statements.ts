@@ -20,7 +20,8 @@ import {
   MAX_STATEMENT_CSV_BYTES,
   parseStatementCsv,
   statementLineFingerprint,
-  type ParsedStatementImportRow,
+  statementImportFingerprint,
+  statementImportTotals,
 } from "../services/statement-import";
 
 const router = Router();
@@ -29,7 +30,7 @@ const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const csvUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_STATEMENT_CSV_BYTES, files: 1, fields: 10, fieldSize: 16 * 1024, parts: 12 },
+  limits: { fileSize: MAX_STATEMENT_CSV_BYTES, files: 1, fields: 12, fieldSize: 16 * 1024, parts: 14 },
   fileFilter: (_req, file, callback) => {
     const extension = extname(file.originalname).toLowerCase();
     const allowedMime = new Set(["text/csv", "application/csv", "application/vnd.ms-excel", "text/plain", "application/octet-stream"]);
@@ -60,6 +61,10 @@ const importMappingSchema = z.object({
   debit_column: z.string().optional(),
   credit_column: z.string().optional(),
   balance_column: z.string().optional(),
+  date_format: z.enum(["us", "iso", "day_first"]),
+  amount_sign: z.enum(["negative_outflow", "positive_outflow"]),
+  currency: z.literal("USD"),
+  preview_fingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   skip_duplicates: z.enum(["true", "false"]).optional().default("false"),
 });
 
@@ -72,6 +77,8 @@ function mappingFrom(body: z.infer<typeof importMappingSchema>) {
     debitColumn: body.debit_column || undefined,
     creditColumn: body.credit_column || undefined,
     balanceColumn: body.balance_column || undefined,
+    dateFormat: body.date_format,
+    amountSign: body.amount_sign,
   };
 }
 
@@ -81,16 +88,6 @@ async function requireMutableStatement(id: string) {
   if (!rows.length) throw new FinancialOperationError("Statement not found.", 404, "STATEMENT_NOT_FOUND");
   if (rows[0].archived_at) throw new FinancialOperationError("Archived statements are read-only.", 409, "STATEMENT_ARCHIVED");
   return rows[0];
-}
-
-function uniqueImportedRows(rows: ParsedStatementImportRow[]) {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    const fingerprint = statementLineFingerprint(row);
-    if (seen.has(fingerprint)) return false;
-    seen.add(fingerprint);
-    return true;
-  });
 }
 
 router.post("/:id/import/inspect", receiveCsv, async (req, res) => {
@@ -108,11 +105,13 @@ router.post("/:id/import/inspect", receiveCsv, async (req, res) => {
 router.post("/:id/import/preview", receiveCsv, async (req, res) => {
   try {
     const statementId = String(req.params.id);
-    await requireMutableStatement(statementId);
+    const statement = await requireMutableStatement(statementId);
     if (!req.file) return res.status(400).json({ error: "Choose a CSV file." });
     const body = importMappingSchema.parse(req.body);
     const parsed = parseStatementCsv(req.file.buffer, mappingFrom(body));
-    const existing = await db.select().from(statement_lines).where(eq(statement_lines.statement_id, statementId));
+    const existing = await db.select({ line: statement_lines }).from(statement_lines)
+      .innerJoin(statements, eq(statement_lines.statement_id, statements.id))
+      .where(eq(statements.account_id, statement.account_id)).then((rows) => rows.map((row) => row.line));
     const fingerprints = new Set(existing.filter((row) => row.transaction_date).map((row) => statementLineFingerprint({
       transaction_date: row.transaction_date!,
       description: row.description ?? "",
@@ -120,7 +119,13 @@ router.post("/:id/import/preview", receiveCsv, async (req, res) => {
       balance_after: row.balance_after == null ? null : Number(row.balance_after),
     })));
     const existingDuplicateRows = parsed.rows.filter((row) => fingerprints.has(statementLineFingerprint(row))).map((row) => row.sourceRow);
+    const excludedRows = new Set([...parsed.duplicate_rows, ...existingDuplicateRows]);
     res.json({
+      preview_fingerprint: statementImportFingerprint(req.file.buffer, mappingFrom(body), statementId),
+      currency: "USD",
+      totals: statementImportTotals(parsed.rows),
+      importable_totals: statementImportTotals(parsed.rows.filter((row) => !excludedRows.has(row.sourceRow))),
+      rows: parsed.rows,
       total_rows: parsed.rows.length + parsed.errors.length,
       valid_rows: parsed.rows.length,
       errors: parsed.errors,
@@ -142,17 +147,19 @@ router.post("/:id/import", receiveCsv, async (req, res) => {
     await requireMutableStatement(statementId);
     if (!req.file) return res.status(400).json({ error: "Choose a CSV file." });
     const body = importMappingSchema.parse(req.body);
+    const fingerprint = statementImportFingerprint(req.file.buffer, mappingFrom(body), statementId);
+    if (body.preview_fingerprint !== fingerprint) return res.status(409).json({ error: "Preview this exact file and mapping before importing.", code: "STATEMENT_PREVIEW_CHANGED" });
     const parsed = parseStatementCsv(req.file.buffer, mappingFrom(body));
     if (parsed.errors.length) return res.status(400).json({ error: "Fix every invalid CSV row before importing.", row_errors: parsed.errors });
     const skipDuplicates = body.skip_duplicates === "true";
     if (parsed.duplicate_rows.length && !skipDuplicates) {
       return res.status(409).json({ error: "The CSV contains duplicate rows. Review or choose Skip duplicates.", duplicate_rows: parsed.duplicate_rows });
     }
-    const result = await importStatementLines(statementId, uniqueImportedRows(parsed.rows), {
+    const result = await importStatementLines(statementId, parsed.rows, {
       skipDuplicates,
-      sourceFileName: req.file.originalname,
+      sourceDigest: fingerprint,
     });
-    res.status(201).json({ imported_count: result.inserted.length, skipped_duplicate_count: result.skipped_duplicate_count + parsed.duplicate_rows.length });
+    res.status(201).json({ imported_count: result.inserted.length, skipped_duplicate_count: result.skipped_duplicate_count });
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.issues });
     if (error instanceof FinancialOperationError) return res.status(error.statusCode).json({ error: error.message, code: error.code });
